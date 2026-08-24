@@ -1,0 +1,19 @@
+{
+  "name": "@semantq/typecaster",
+  "version": "0.1.0",
+  "description": "Schema-driven type casting and type metadata engine for the Semantq ecosystem.",
+  "main": "index.js",
+  "bin": {
+    "typecaster": "cli/typecaster.js"
+  },
+  "keywords": [
+    "semantq",
+    "typecaster",
+    "typescript",
+    "schema",
+    "type-generation",
+    "type-casting"
+  ],
+  "author": "Gugulethu Nyoni",
+  "license": "MIT"
+}
