@@ -14,11 +14,8 @@ class MetadataBuilder {
             throw new Error('Model name is required');
         }
 
-        const fields = model.fields || {};
-
         return {
-            name: model.name,
-            fields: this.buildFields(fields)
+            fields: this.buildFields(model.fields || {})
         };
     }
 
@@ -30,6 +27,10 @@ class MetadataBuilder {
         const metadata = {};
 
         for (const [name, definition] of Object.entries(fields)) {
+            if (definition?.metadata?.relation === true) {
+                continue;
+            }
+
             metadata[name] = this.buildField(name, definition);
         }
 
@@ -48,15 +49,104 @@ class MetadataBuilder {
         }
 
         const type = definition.type || 'Unsupported';
+        const editor = this.resolveEditor(type, definition);
 
-        return {
-            name,
-            type,
-            nullable: Boolean(definition.nullable),
-            required: definition.required !== false,
-            default: definition.default,
-            metadata: definition.metadata || {}
+        const result = {
+            editor
         };
+
+        const options = this.resolveOptions(type, definition);
+
+        if (options !== undefined) {
+            result.options = options;
+        }
+
+        return result;
+    }
+
+    resolveEditor(type, definition = {}) {
+        const normalized = String(type || '')
+            .trim()
+            .toLowerCase();
+
+        if (definition.editor) {
+            return definition.editor;
+        }
+
+        if (definition.metadata?.list === true) {
+            return 'array';
+        }
+
+        if (
+            normalized === 'int' ||
+            normalized === 'integer' ||
+            normalized === 'bigint' ||
+            normalized === 'float' ||
+            normalized === 'decimal'
+        ) {
+            return 'number';
+        }
+
+        if (
+            normalized === 'boolean' ||
+            normalized === 'bool'
+        ) {
+            return 'boolean';
+        }
+
+        if (
+            normalized === 'datetime' ||
+            normalized === 'date'
+        ) {
+            return 'datetime';
+        }
+
+        if (normalized === 'enum') {
+            return 'select';
+        }
+
+        if (normalized === 'json') {
+            return 'json';
+        }
+
+        if (
+            normalized === 'array' ||
+            normalized.endsWith('[]')
+        ) {
+            return 'array';
+        }
+
+        if (
+            normalized === 'bytes' ||
+            normalized === 'unsupported'
+        ) {
+            return 'text';
+        }
+
+        return 'text';
+    }
+
+    resolveOptions(type, definition = {}) {
+        const normalized = String(type || '')
+            .trim()
+            .toLowerCase();
+
+        if (normalized !== 'enum') {
+            return undefined;
+        }
+
+        if (
+            definition.metadata &&
+            Array.isArray(definition.metadata.values)
+        ) {
+            return definition.metadata.values;
+        }
+
+        if (Array.isArray(definition.values)) {
+            return definition.values;
+        }
+
+        return [];
     }
 
     buildAll(models = null) {
@@ -71,6 +161,24 @@ class MetadataBuilder {
         }
 
         return source.map((model) => this.buildModel(model));
+    }
+
+    buildModelMetadata(modelName) {
+        if (!this.modelRegistry) {
+            throw new Error(
+                'ModelRegistry is required for metadata operations'
+            );
+        }
+
+        const model = this.modelRegistry.resolve(modelName);
+
+        if (!model) {
+            throw new Error(`Unknown model "${modelName}"`);
+        }
+
+        return {
+            fields: this.buildFields(model.fields || {})
+        };
     }
 }
 
