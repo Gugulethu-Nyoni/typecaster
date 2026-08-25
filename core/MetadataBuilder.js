@@ -1,4 +1,5 @@
 class MetadataBuilder {
+
     constructor(typeRegistry = null, modelRegistry = null) {
         this.typeRegistry = typeRegistry;
         this.modelRegistry = modelRegistry;
@@ -41,7 +42,9 @@ class MetadataBuilder {
         }
 
         if (!definition || typeof definition !== 'object') {
-            throw new Error(`Field definition for "${name}" must be an object`);
+            throw new Error(
+                `Field definition for "${name}" must be an object`
+            );
         }
 
         const type = definition.type || 'Unsupported';
@@ -71,4 +74,4 @@ class MetadataBuilder {
     }
 }
 
-module.exports = MetadataBuilder;
+export default MetadataBuilder;
