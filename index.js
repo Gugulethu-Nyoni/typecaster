@@ -1,80 +1,43 @@
 import TypeCaster from './core/TypeCaster.js';
-import TypeRegistry from './core/TypeRegistry.js';
 import SchemaReader from './core/SchemaReader.js';
+import TypeRegistry from './core/TypeRegistry.js';
 import ModelRegistry from './core/ModelRegistry.js';
 import MetadataBuilder from './core/MetadataBuilder.js';
-import OverrideRegistry from './overrides/OverrideRegistry.js';
-import Validator from './overrides/Validator.js';
+
+import StringCaster from './types/String.js';
+import IntCaster from './types/Int.js';
+import BigIntCaster from './types/BigInt.js';
+import FloatCaster from './types/Float.js';
+import DecimalCaster from './types/Decimal.js';
+import BooleanCaster from './types/Boolean.js';
+import DateTimeCaster from './types/DateTime.js';
+import JsonCaster from './types/Json.js';
+import BytesCaster from './types/Bytes.js';
+import EnumCaster from './types/Enum.js';
+import UnsupportedCaster from './types/Unsupported.js';
+
 import PostgreSQLProvider from './providers/PostgreSQL.js';
 
-import StringType from './types/String.js';
-import IntType from './types/Int.js';
-import BigIntType from './types/BigInt.js';
-import FloatType from './types/Float.js';
-import DecimalType from './types/Decimal.js';
-import BooleanType from './types/Boolean.js';
-import DateTimeType from './types/DateTime.js';
-import JsonType from './types/Json.js';
-import BytesType from './types/Bytes.js';
-import EnumType from './types/Enum.js';
-import UnsupportedType from './types/Unsupported.js';
-
-const types = {
-    String: StringType,
-    Int: IntType,
-    BigInt: BigIntType,
-    Float: FloatType,
-    Decimal: DecimalType,
-    Boolean: BooleanType,
-    DateTime: DateTimeType,
-    Json: JsonType,
-    Bytes: BytesType,
-    Enum: EnumType,
-    Unsupported: UnsupportedType
-};
-
-function createTypeRegistry() {
-    const registry = new TypeRegistry();
-
-    for (const [name, definition] of Object.entries(types)) {
-        registry.register(name, definition);
-    }
-
-    return registry;
-}
-
-function createTypeCaster(
-    modelRegistry = null,
-    overrideRegistry = null
-) {
-    const typeRegistry = createTypeRegistry();
-
-    const metadataBuilder = new MetadataBuilder(
-        typeRegistry,
-        modelRegistry
-    );
-
-    const typeCaster = new TypeCaster(
-        typeRegistry,
-        modelRegistry,
-        overrideRegistry
-    );
-
-    typeCaster.metadataBuilder = metadataBuilder;
-
-    return typeCaster;
-}
-
 export {
-    TypeCaster,
-    TypeRegistry,
-    SchemaReader,
-    ModelRegistry,
-    MetadataBuilder,
-    OverrideRegistry,
-    Validator,
-    PostgreSQLProvider,
-    types,
-    createTypeRegistry,
-    createTypeCaster
+  TypeCaster,
+  SchemaReader,
+  TypeRegistry,
+  ModelRegistry,
+  MetadataBuilder,
+
+  StringCaster,
+  IntCaster,
+  BigIntCaster,
+  FloatCaster,
+  DecimalCaster,
+  BooleanCaster,
+  DateTimeCaster,
+  JsonCaster,
+  BytesCaster,
+  EnumCaster,
+  UnsupportedCaster,
+
+  PostgreSQLProvider,
 };
+
+export default TypeCaster;
