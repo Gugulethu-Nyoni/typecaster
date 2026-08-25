@@ -1,53 +1,119 @@
-const BytesType = {
-    name: 'Bytes',
+const HEX_PATTERN = /^(?:[0-9a-fA-F]{2})+$/;
 
-    cast(value, options = {}) {
-        if (value === null || value === undefined) {
-            return value;
-        }
+function isBuffer(value) {
+  return (
+    typeof Buffer !== 'undefined' &&
+    Buffer.isBuffer(value)
+  );
+}
 
-        if (Buffer.isBuffer(value)) {
-            return Buffer.from(value);
-        }
-
-        if (value instanceof Uint8Array) {
-            return Buffer.from(value);
-        }
-
-        if (typeof value === 'string') {
-            const input = value.trim();
-
-            if (input === '') {
-                throw new TypeError('Cannot cast empty string to Bytes');
-            }
-
-            const encoding = options.encoding || 'utf8';
-
-            if (!['utf8', 'hex', 'base64'].includes(encoding)) {
-                throw new TypeError(`Unsupported Bytes encoding "${encoding}"`);
-            }
-
-            if (encoding === 'hex' && !/^(?:[0-9a-fA-F]{2})*$/.test(input)) {
-                throw new TypeError(`Cannot cast "${value}" to Bytes as hex`);
-            }
-
-            try {
-                return Buffer.from(input, encoding);
-            } catch (error) {
-                throw new TypeError(`Cannot cast "${value}" to Bytes`);
-            }
-        }
-
-        if (Array.isArray(value)) {
-            if (!value.every((item) => Number.isInteger(item) && item >= 0 && item <= 255)) {
-                throw new TypeError('Byte array values must be integers between 0 and 255');
-            }
-
-            return Buffer.from(value);
-        }
-
-        throw new TypeError(`Cannot cast "${value}" to Bytes`);
+const BytesCaster = {
+  formToDb(value) {
+    if (value === null || value === undefined) {
+      return value;
     }
+
+    if (isBuffer(value)) {
+      return value;
+    }
+
+    if (value instanceof Uint8Array) {
+      return Buffer.from(value);
+    }
+
+    if (value instanceof ArrayBuffer) {
+      return Buffer.from(value);
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+
+      if (normalized === '') {
+        return Buffer.alloc(0);
+      }
+
+      if (!HEX_PATTERN.test(normalized)) {
+        throw new TypeError(
+          'BytesCaster.formToDb() expected a hexadecimal string.'
+        );
+      }
+
+      return Buffer.from(normalized, 'hex');
+    }
+
+    if (Array.isArray(value)) {
+      if (
+        !value.every(
+          (item) =>
+            Number.isInteger(item) &&
+            item >= 0 &&
+            item <= 255
+        )
+      ) {
+        throw new TypeError(
+          'BytesCaster.formToDb() expected an array of byte values.'
+        );
+      }
+
+      return Buffer.from(value);
+    }
+
+    throw new TypeError(
+      'BytesCaster.formToDb() received a value that cannot be cast to Bytes.'
+    );
+  },
+
+  dbToForm(value) {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    if (isBuffer(value)) {
+      return value;
+    }
+
+    if (value instanceof Uint8Array) {
+      return Buffer.from(value);
+    }
+
+    if (value instanceof ArrayBuffer) {
+      return Buffer.from(value);
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+
+      if (normalized === '') {
+        return Buffer.alloc(0);
+      }
+
+      if (!HEX_PATTERN.test(normalized)) {
+        throw new TypeError(
+          'BytesCaster.dbToForm() expected a hexadecimal string.'
+        );
+      }
+
+      return Buffer.from(normalized, 'hex');
+    }
+
+    throw new TypeError(
+      'BytesCaster.dbToForm() received a value that cannot be represented as Bytes.'
+    );
+  },
+
+  assert(value) {
+    if (value === null || value === undefined) {
+      return true;
+    }
+
+    if (!isBuffer(value)) {
+      throw new TypeError(
+        'BytesCaster.assert() expected a Buffer value.'
+      );
+    }
+
+    return true;
+  },
 };
 
-export default BytesType;
+export default BytesCaster;
