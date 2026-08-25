@@ -1,185 +1,260 @@
 class MetadataBuilder {
+  constructor(options = {}) {
+    this.schemaReader = options.schemaReader || null;
+  }
 
-    constructor(typeRegistry = null, modelRegistry = null) {
-        this.typeRegistry = typeRegistry;
-        this.modelRegistry = modelRegistry;
+  build(schema) {
+    if (!schema || typeof schema !== 'object') {
+      throw new TypeError(
+        'MetadataBuilder.build() expects schema metadata.'
+      );
     }
 
-    buildModel(model) {
-        if (!model || typeof model !== 'object') {
-            throw new Error('Model definition is required');
-        }
+    const models = this.normalizeModels(
+      schema.models || {}
+    );
 
-        if (!model.name) {
-            throw new Error('Model name is required');
-        }
+    const enums = this.normalizeEnums(
+      schema.enums || {}
+    );
 
-        return {
-            fields: this.buildFields(model.fields || {})
-        };
+    return {
+      models,
+      enums,
+    };
+  }
+
+  buildFromReader(...args) {
+    if (!this.schemaReader) {
+      throw new Error(
+        'MetadataBuilder requires a schemaReader to use buildFromReader().'
+      );
     }
 
-    buildFields(fields) {
-        if (!fields || typeof fields !== 'object') {
-            throw new Error('Fields must be an object');
-        }
+    const schema =
+      typeof this.schemaReader.read === 'function'
+        ? this.schemaReader.read(...args)
+        : typeof this.schemaReader.parse === 'function'
+          ? this.schemaReader.parse(...args)
+          : null;
 
-        const metadata = {};
-
-        for (const [name, definition] of Object.entries(fields)) {
-            if (definition?.metadata?.relation === true) {
-                continue;
-            }
-
-            metadata[name] = this.buildField(name, definition);
-        }
-
-        return metadata;
+    if (!schema) {
+      throw new TypeError(
+        'SchemaReader must implement read() or parse().'
+      );
     }
 
-    buildField(name, definition = {}) {
-        if (!name) {
-            throw new Error('Field name is required');
-        }
+    return this.build(schema);
+  }
 
-        if (!definition || typeof definition !== 'object') {
-            throw new Error(
-                `Field definition for "${name}" must be an object`
-            );
-        }
-
-        const type = definition.type || 'Unsupported';
-        const editor = this.resolveEditor(type, definition);
-
-        const result = {
-            editor
-        };
-
-        const options = this.resolveOptions(type, definition);
-
-        if (options !== undefined) {
-            result.options = options;
-        }
-
-        return result;
+  normalizeModels(models) {
+    if (
+      !models ||
+      typeof models !== 'object' ||
+      Array.isArray(models)
+    ) {
+      throw new TypeError(
+        'MetadataBuilder models must be an object or Map.'
+      );
     }
 
-    resolveEditor(type, definition = {}) {
-        const normalized = String(type || '')
-            .trim()
-            .toLowerCase();
-
-        if (definition.editor) {
-            return definition.editor;
-        }
-
-        if (definition.metadata?.list === true) {
-            return 'array';
-        }
-
-        if (
-            normalized === 'int' ||
-            normalized === 'integer' ||
-            normalized === 'bigint' ||
-            normalized === 'float' ||
-            normalized === 'decimal'
-        ) {
-            return 'number';
-        }
-
-        if (
-            normalized === 'boolean' ||
-            normalized === 'bool'
-        ) {
-            return 'boolean';
-        }
-
-        if (
-            normalized === 'datetime' ||
-            normalized === 'date'
-        ) {
-            return 'datetime';
-        }
-
-        if (normalized === 'enum') {
-            return 'select';
-        }
-
-        if (normalized === 'json') {
-            return 'json';
-        }
-
-        if (
-            normalized === 'array' ||
-            normalized.endsWith('[]')
-        ) {
-            return 'array';
-        }
-
-        if (
-            normalized === 'bytes' ||
-            normalized === 'unsupported'
-        ) {
-            return 'text';
-        }
-
-        return 'text';
+    if (models instanceof Map) {
+      return this.normalizeModelMap(
+        models
+      );
     }
 
-    resolveOptions(type, definition = {}) {
-        const normalized = String(type || '')
-            .trim()
-            .toLowerCase();
+    const normalized = {};
 
-        if (normalized !== 'enum') {
-            return undefined;
-        }
-
-        if (
-            definition.metadata &&
-            Array.isArray(definition.metadata.values)
-        ) {
-            return definition.metadata.values;
-        }
-
-        if (Array.isArray(definition.values)) {
-            return definition.values;
-        }
-
-        return [];
-    }
-
-    buildAll(models = null) {
-        const source = models || (
-            this.modelRegistry
-                ? this.modelRegistry.getAll()
-                : []
+    for (
+      const [modelName, model] of Object.entries(models)
+    ) {
+      normalized[modelName] =
+        this.normalizeModel(
+          modelName,
+          model
         );
-
-        if (!Array.isArray(source)) {
-            throw new Error('Models must be an array');
-        }
-
-        return source.map((model) => this.buildModel(model));
     }
 
-    buildModelMetadata(modelName) {
-        if (!this.modelRegistry) {
-            throw new Error(
-                'ModelRegistry is required for metadata operations'
-            );
-        }
+    return normalized;
+  }
 
-        const model = this.modelRegistry.resolve(modelName);
+  normalizeModelMap(models) {
+    const normalized = new Map();
 
-        if (!model) {
-            throw new Error(`Unknown model "${modelName}"`);
-        }
-
-        return {
-            fields: this.buildFields(model.fields || {})
-        };
+    for (
+      const [modelName, model] of models
+    ) {
+      normalized.set(
+        modelName,
+        this.normalizeModel(
+          modelName,
+          model
+        )
+      );
     }
+
+    return normalized;
+  }
+
+  normalizeModel(modelName, model) {
+    if (!model || typeof model !== 'object') {
+      throw new TypeError(
+        `Invalid metadata for model "${modelName}".`
+      );
+    }
+
+    const fields =
+      model.fields || {};
+
+    if (
+      !fields ||
+      typeof fields !== 'object' ||
+      Array.isArray(fields)
+    ) {
+      throw new TypeError(
+        `Invalid fields metadata for model "${modelName}".`
+      );
+    }
+
+    return {
+      ...model,
+      name:
+        model.name ||
+        modelName,
+      fields:
+        this.normalizeFields(
+          fields
+        ),
+    };
+  }
+
+  normalizeFields(fields) {
+    if (fields instanceof Map) {
+      return this.normalizeFieldMap(
+        fields
+      );
+    }
+
+    const normalized = {};
+
+    for (
+      const [fieldName, field] of Object.entries(fields)
+    ) {
+      normalized[fieldName] =
+        this.normalizeField(
+          fieldName,
+          field
+        );
+    }
+
+    return normalized;
+  }
+
+  normalizeFieldMap(fields) {
+    const normalized = new Map();
+
+    for (
+      const [fieldName, field] of fields
+    ) {
+      normalized.set(
+        fieldName,
+        this.normalizeField(
+          fieldName,
+          field
+        )
+      );
+    }
+
+    return normalized;
+  }
+
+  normalizeField(fieldName, field) {
+    if (!field || typeof field !== 'object') {
+      throw new TypeError(
+        `Invalid metadata for field "${fieldName}".`
+      );
+    }
+
+    const type =
+      typeof field.type === 'string'
+        ? field.type.trim()
+        : '';
+
+    if (!type) {
+      throw new TypeError(
+        `Field "${fieldName}" is missing its type metadata.`
+      );
+    }
+
+    return {
+      ...field,
+      name:
+        field.name ||
+        fieldName,
+      type,
+      nullable:
+        field.nullable === true,
+      isList:
+        field.isList === true,
+    };
+  }
+
+  normalizeEnums(enums) {
+    if (
+      !enums ||
+      typeof enums !== 'object' ||
+      Array.isArray(enums)
+    ) {
+      throw new TypeError(
+        'MetadataBuilder enums must be an object or Map.'
+      );
+    }
+
+    if (enums instanceof Map) {
+      const normalized = new Map();
+
+      for (
+        const [enumName, values] of enums
+      ) {
+        normalized.set(
+          enumName,
+          this.normalizeEnum(
+            enumName,
+            values
+          )
+        );
+      }
+
+      return normalized;
+    }
+
+    const normalized = {};
+
+    for (
+      const [enumName, values] of Object.entries(enums)
+    ) {
+      normalized[enumName] =
+        this.normalizeEnum(
+          enumName,
+          values
+        );
+    }
+
+    return normalized;
+  }
+
+  normalizeEnum(enumName, values) {
+    if (
+      !Array.isArray(values)
+    ) {
+      throw new TypeError(
+        `Enum "${enumName}" must define an array of values.`
+      );
+    }
+
+    return [...values];
+  }
 }
 
 export default MetadataBuilder;
