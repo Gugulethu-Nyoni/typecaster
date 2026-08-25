@@ -1,12 +1,20 @@
+import Validator from '../overrides/Validator.js';
+
 class TypeCaster {
 
-    constructor(typeRegistry, modelRegistry = null) {
+    constructor(
+        typeRegistry,
+        modelRegistry = null,
+        overrideRegistry = null
+    ) {
         if (!typeRegistry) {
             throw new Error('TypeRegistry is required');
         }
 
         this.typeRegistry = typeRegistry;
         this.modelRegistry = modelRegistry;
+        this.overrideRegistry = overrideRegistry;
+        this.validator = new Validator();
         this.metadataBuilder = null;
     }
 
@@ -100,40 +108,52 @@ class TypeCaster {
         };
     }
 
-    formToDbField(value, field) {
+    formToDbField(value, field, modelName = null) {
         if (!field || typeof field !== 'object') {
             throw new Error('Field definition is required');
         }
 
         const options = this.buildFieldOptions(field);
 
-        if (field.metadata?.list === true) {
-            return this.formToDbList(value, field, options);
-        }
+        const result = field.metadata?.list === true
+            ? this.formToDbList(value, field, options)
+            : this.formToDb(
+                value,
+                field.type,
+                options
+            );
 
-        return this.formToDb(
-            value,
-            field.type,
-            options
+        this.validateOverride(
+            result,
+            modelName,
+            field.name
         );
+
+        return result;
     }
 
-    dbToFormField(value, field) {
+    dbToFormField(value, field, modelName = null) {
         if (!field || typeof field !== 'object') {
             throw new Error('Field definition is required');
         }
 
         const options = this.buildFieldOptions(field);
 
-        if (field.metadata?.list === true) {
-            return this.dbToFormList(value, field, options);
-        }
+        const result = field.metadata?.list === true
+            ? this.dbToFormList(value, field, options)
+            : this.dbToForm(
+                value,
+                field.type,
+                options
+            );
 
-        return this.dbToForm(
-            value,
-            field.type,
-            options
+        this.validateOverride(
+            result,
+            modelName,
+            field.name
         );
+
+        return result;
     }
 
     formToDbList(value, field, options = {}) {
@@ -246,7 +266,14 @@ class TypeCaster {
                 continue;
             }
 
-            result[name] = this.formToDbField(value, field);
+            result[name] = this.formToDbField(
+                value,
+                {
+                    ...field,
+                    name
+                },
+                modelName
+            );
         }
 
         return result;
@@ -269,12 +296,44 @@ class TypeCaster {
                 continue;
             }
 
-            result[name] = this.dbToFormField(value, field);
+            result[name] = this.dbToFormField(
+                value,
+                {
+                    ...field,
+                    name
+                },
+                modelName
+            );
         }
 
         result.metadata = this.buildEditorMetadata(model);
 
         return result;
+    }
+
+    validateOverride(value, modelName, fieldName) {
+        if (!this.overrideRegistry) {
+            return true;
+        }
+
+        if (!modelName || !fieldName) {
+            return true;
+        }
+
+        const override = this.overrideRegistry.resolve(
+            modelName,
+            fieldName
+        );
+
+        if (!override) {
+            return true;
+        }
+
+        return this.validator.validateOverride(
+            value,
+            override,
+            `${modelName}.${fieldName}`
+        );
     }
 
     buildEditorMetadata(model) {
