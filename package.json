@@ -1,7 +1,8 @@
 {
   "name": "@semantq/typecaster",
-  "version": "0.1.0",
-  "description": "Schema-driven type casting and type metadata engine for the Semantq ecosystem.",
+  "version": "1.0.0",
+  "description": "Bidirectional type casting and model metadata for Semantq",
+  "type": "module",
   "main": "index.js",
   "bin": {
     "typecaster": "cli/typecaster.js"
@@ -9,10 +10,9 @@
   "keywords": [
     "semantq",
     "typecaster",
-    "typescript",
+    "typecasting",
     "schema",
-    "type-generation",
-    "type-casting"
+    "mcsr"
   ],
   "author": "Gugulethu Nyoni",
   "license": "MIT"

@@ -1,25 +1,23 @@
-const TypeCaster = require('./core/TypeCaster');
-const TypeRegistry = require('./core/TypeRegistry');
-const SchemaReader = require('./core/SchemaReader');
-const ModelRegistry = require('./core/ModelRegistry');
-const MetadataBuilder = require('./core/MetadataBuilder');
+import TypeCaster from './core/TypeCaster.js';
+import TypeRegistry from './core/TypeRegistry.js';
+import SchemaReader from './core/SchemaReader.js';
+import ModelRegistry from './core/ModelRegistry.js';
+import MetadataBuilder from './core/MetadataBuilder.js';
+import OverrideRegistry from './overrides/OverrideRegistry.js';
+import Validator from './overrides/Validator.js';
+import PostgreSQLProvider from './providers/PostgreSQL.js';
 
-const OverrideRegistry = require('./overrides/OverrideRegistry');
-const Validator = require('./overrides/Validator');
-
-const PostgreSQLProvider = require('./providers/PostgreSQL');
-
-const StringType = require('./types/String');
-const IntType = require('./types/Int');
-const BigIntType = require('./types/BigInt');
-const FloatType = require('./types/Float');
-const DecimalType = require('./types/Decimal');
-const BooleanType = require('./types/Boolean');
-const DateTimeType = require('./types/DateTime');
-const JsonType = require('./types/Json');
-const BytesType = require('./types/Bytes');
-const EnumType = require('./types/Enum');
-const UnsupportedType = require('./types/Unsupported');
+import StringType from './types/String.js';
+import IntType from './types/Int.js';
+import BigIntType from './types/BigInt.js';
+import FloatType from './types/Float.js';
+import DecimalType from './types/Decimal.js';
+import BooleanType from './types/Boolean.js';
+import DateTimeType from './types/DateTime.js';
+import JsonType from './types/Json.js';
+import BytesType from './types/Bytes.js';
+import EnumType from './types/Enum.js';
+import UnsupportedType from './types/Unsupported.js';
 
 const types = {
     String: StringType,
@@ -45,24 +43,23 @@ function createTypeRegistry() {
     return registry;
 }
 
-function createTypeCaster() {
-    return new TypeCaster(createTypeRegistry());
+function createTypeCaster(modelRegistry = null) {
+    return new TypeCaster(
+        createTypeRegistry(),
+        modelRegistry
+    );
 }
 
-module.exports = {
+export {
     TypeCaster,
     TypeRegistry,
     SchemaReader,
     ModelRegistry,
     MetadataBuilder,
-
     OverrideRegistry,
     Validator,
-
     PostgreSQLProvider,
-
     types,
-
     createTypeRegistry,
     createTypeCaster
 };
