@@ -1,65 +1,67 @@
 class Validator {
-    constructor() {
-        this.validators = new Map();
-    }
 
-    register(name, validator) {
-        if (!name) {
-            throw new Error('Validator name is required');
+    validate(value, definition = {}) {
+        if (value === null || value === undefined) {
+            if (definition.nullable) {
+                return true;
+            }
+
+            if (definition.required) {
+                throw new TypeError(
+                    `Required field "${definition.name || 'value'}" is missing`
+                );
+            }
+
+            return true;
         }
 
-        if (typeof validator !== 'function') {
-            throw new Error(`Validator "${name}" must be a function`);
-        }
+        if (definition.validate) {
+            if (typeof definition.validate !== 'function') {
+                throw new TypeError(
+                    'Field validator must be a function'
+                );
+            }
 
-        this.validators.set(name, validator);
+            const result = definition.validate(value);
 
-        return validator;
-    }
-
-    resolve(name) {
-        return this.validators.get(name);
-    }
-
-    has(name) {
-        return this.validators.has(name);
-    }
-
-    validate(name, value, options = {}) {
-        const validator = this.resolve(name);
-
-        if (!validator) {
-            throw new Error(`Unknown validator "${name}"`);
-        }
-
-        return Boolean(validator(value, options));
-    }
-
-    assert(name, value, options = {}) {
-        if (!this.validate(name, value, options)) {
-            throw new TypeError(
-                options.message || `Validation failed for "${name}"`
-            );
+            if (result === false) {
+                throw new TypeError(
+                    `Validation failed for "${definition.name || 'value'}"`
+                );
+            }
         }
 
         return true;
     }
 
-    getAll() {
-        return Array.from(this.validators.keys());
+    validateField(value, field) {
+        if (!field || typeof field !== 'object') {
+            throw new TypeError('Field definition is required');
+        }
+
+        return this.validate(value, field);
     }
 
-    remove(name) {
-        return this.validators.delete(name);
-    }
+    validateModel(data, model) {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            throw new TypeError('Model data must be an object');
+        }
 
-    clear() {
-        this.validators.clear();
-    }
+        if (!model || typeof model !== 'object') {
+            throw new TypeError('Model definition is required');
+        }
 
-    size() {
-        return this.validators.size;
+        const fields = model.fields || {};
+
+        for (const [name, field] of Object.entries(fields)) {
+            this.validateField(data[name], {
+                ...field,
+                name
+            });
+        }
+
+        return true;
     }
 }
 
-module.exports = Validator;
+export default Validator;
