@@ -7,6 +7,7 @@ class TypeCaster {
 
         this.typeRegistry = typeRegistry;
         this.modelRegistry = modelRegistry;
+        this.metadataBuilder = null;
     }
 
     cast(value, type, options = {}) {
@@ -104,10 +105,16 @@ class TypeCaster {
             throw new Error('Field definition is required');
         }
 
+        const options = this.buildFieldOptions(field);
+
+        if (field.metadata?.list === true) {
+            return this.formToDbList(value, field, options);
+        }
+
         return this.formToDb(
             value,
             field.type,
-            this.buildFieldOptions(field)
+            options
         );
     }
 
@@ -116,10 +123,104 @@ class TypeCaster {
             throw new Error('Field definition is required');
         }
 
+        const options = this.buildFieldOptions(field);
+
+        if (field.metadata?.list === true) {
+            return this.dbToFormList(value, field, options);
+        }
+
         return this.dbToForm(
             value,
             field.type,
-            this.buildFieldOptions(field)
+            options
+        );
+    }
+
+    formToDbList(value, field, options = {}) {
+        if (value === null || value === undefined) {
+            return this.formToDb(
+                value,
+                field.type,
+                options
+            );
+        }
+
+        if (typeof value === 'string') {
+            if (value.trim() === '') {
+                return [];
+            }
+
+            try {
+                const parsed = JSON.parse(value);
+
+                if (Array.isArray(parsed)) {
+                    value = parsed;
+                } else {
+                    value = value
+                        .split(',')
+                        .map(item => item.trim())
+                        .filter(Boolean);
+                }
+            } catch {
+                value = value
+                    .split(',')
+                    .map(item => item.trim())
+                    .filter(Boolean);
+            }
+        }
+
+        if (!Array.isArray(value)) {
+            throw new Error(
+                `Expected an array value for field "${field.name}"`
+            );
+        }
+
+        return value.map(item =>
+            this.formToDb(
+                item,
+                field.type,
+                options
+            )
+        );
+    }
+
+    dbToFormList(value, field, options = {}) {
+        if (value === null || value === undefined) {
+            return value;
+        }
+
+        if (!Array.isArray(value)) {
+            if (typeof value === 'string') {
+                try {
+                    const parsed = JSON.parse(value);
+
+                    if (Array.isArray(parsed)) {
+                        value = parsed;
+                    } else {
+                        value = value
+                            .split(',')
+                            .map(item => item.trim())
+                            .filter(Boolean);
+                    }
+                } catch {
+                    value = value
+                        .split(',')
+                        .map(item => item.trim())
+                        .filter(Boolean);
+                }
+            } else {
+                throw new Error(
+                    `Expected an array value for field "${field.name}"`
+                );
+            }
+        }
+
+        return value.map(item =>
+            this.dbToForm(
+                item,
+                field.type,
+                options
+            )
         );
     }
 
@@ -133,6 +234,11 @@ class TypeCaster {
         const result = {};
 
         for (const [name, value] of Object.entries(data)) {
+            // metadata is TypeCaster transport metadata, never model data.
+            if (name === 'metadata') {
+                continue;
+            }
+
             const field = fields[name];
 
             if (!field) {
@@ -166,7 +272,26 @@ class TypeCaster {
             result[name] = this.dbToFormField(value, field);
         }
 
+        result.metadata = this.buildEditorMetadata(model);
+
         return result;
+    }
+
+    buildEditorMetadata(model) {
+        if (!model || typeof model !== 'object') {
+            throw new Error('Model definition is required');
+        }
+
+        if (!this.metadataBuilder) {
+            return {
+                fields: {}
+            };
+        }
+
+        return this.metadataBuilder.buildModel({
+            name: model.name,
+            fields: model.fields || {}
+        });
     }
 
     resolveModel(modelName) {
