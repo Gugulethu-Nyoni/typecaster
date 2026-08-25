@@ -1,4 +1,5 @@
 class TypeRegistry {
+
     constructor() {
         this.types = new Map();
     }
@@ -9,7 +10,9 @@ class TypeRegistry {
         }
 
         if (!definition || typeof definition !== 'object') {
-            throw new Error(`Type definition for "${name}" must be an object`);
+            throw new Error(
+                `Type definition for "${name}" must be an object`
+            );
         }
 
         this.types.set(name, {
@@ -41,4 +44,4 @@ class TypeRegistry {
     }
 }
 
-module.exports = TypeRegistry;
+export default TypeRegistry;
