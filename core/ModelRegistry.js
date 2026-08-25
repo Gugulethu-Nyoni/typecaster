@@ -1,4 +1,5 @@
 class ModelRegistry {
+
     constructor() {
         this.models = new Map();
     }
@@ -9,7 +10,9 @@ class ModelRegistry {
         }
 
         if (!definition || typeof definition !== 'object') {
-            throw new Error(`Model definition for "${name}" must be an object`);
+            throw new Error(
+                `Model definition for "${name}" must be an object`
+            );
         }
 
         const model = {
@@ -71,4 +74,4 @@ class ModelRegistry {
     }
 }
 
-module.exports = ModelRegistry;
+export default ModelRegistry;
