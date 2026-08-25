@@ -1,19 +1,34 @@
 {
   "name": "@semantq/typecaster",
-  "version": "1.0.0",
-  "description": "Bidirectional type casting and model metadata for Semantq",
+  "version": "0.1.0",
+  "description": "Schema-aware type casting and structural validation for Semantq QL.",
   "type": "module",
   "main": "index.js",
   "bin": {
     "typecaster": "cli/typecaster.js"
   },
-  "keywords": [
-    "semantq",
-    "typecaster",
-    "typecasting",
-    "schema",
-    "mcsr"
+  "exports": {
+    ".": "./index.js",
+    "./core/TypeCaster": "./core/TypeCaster.js",
+    "./core/SchemaReader": "./core/SchemaReader.js",
+    "./core/TypeRegistry": "./core/TypeRegistry.js",
+    "./core/ModelRegistry": "./core/ModelRegistry.js",
+    "./core/MetadataBuilder": "./core/MetadataBuilder.js"
+  },
+  "files": [
+    "index.js",
+    "cli",
+    "core",
+    "types",
+    "providers",
+    "README.md"
   ],
-  "author": "Gugulethu Nyoni",
+  "scripts": {
+    "check": "node --check index.js && node --check core/TypeCaster.js && node --check core/SchemaReader.js && node --check core/TypeRegistry.js && node --check core/ModelRegistry.js && node --check core/MetadataBuilder.js",
+    "cli": "node cli/typecaster.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }
