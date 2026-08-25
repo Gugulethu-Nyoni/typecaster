@@ -1,33 +1,36 @@
 class PostgreSQLProvider {
-    constructor() {
-        this.name = 'PostgreSQL';
 
-        this.typeMap = new Map([
-            ['String', 'text'],
-            ['Int', 'integer'],
-            ['BigInt', 'bigint'],
-            ['Float', 'double precision'],
-            ['Decimal', 'numeric'],
-            ['Boolean', 'boolean'],
-            ['DateTime', 'timestamp with time zone'],
-            ['Json', 'jsonb'],
-            ['Bytes', 'bytea'],
-            ['Enum', 'text'],
-            ['Unsupported', null]
-        ]);
+    constructor(options = {}) {
+        this.options = options;
+    }
+
+    getName() {
+        return 'PostgreSQL';
+    }
+
+    getTypeMapping() {
+        return {
+            String: 'text',
+            Int: 'integer',
+            BigInt: 'bigint',
+            Float: 'double precision',
+            Decimal: 'numeric',
+            Boolean: 'boolean',
+            DateTime: 'timestamp',
+            Json: 'jsonb',
+            Bytes: 'bytea'
+        };
     }
 
     resolveType(type) {
-        return this.typeMap.get(type);
+        const mapping = this.getTypeMapping();
+
+        return mapping[type] || null;
     }
 
     supports(type) {
-        return this.typeMap.has(type) && this.resolveType(type) !== null;
-    }
-
-    getTypeMap() {
-        return Object.fromEntries(this.typeMap);
+        return this.resolveType(type) !== null;
     }
 }
 
-module.exports = PostgreSQLProvider;
+export default PostgreSQLProvider;
