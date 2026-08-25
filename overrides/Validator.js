@@ -1,6 +1,7 @@
 class Validator {
 
     validate(value, definition = {}) {
+
         if (value === null || value === undefined) {
             if (definition.nullable) {
                 return true;
@@ -26,6 +27,7 @@ class Validator {
 
             if (result === false) {
                 throw new TypeError(
+                    definition.message ||
                     `Validation failed for "${definition.name || 'value'}"`
                 );
             }
@@ -35,6 +37,7 @@ class Validator {
     }
 
     validateField(value, field) {
+
         if (!field || typeof field !== 'object') {
             throw new TypeError('Field definition is required');
         }
@@ -42,7 +45,20 @@ class Validator {
         return this.validate(value, field);
     }
 
+    validateOverride(value, override, fieldName = 'value') {
+
+        if (!override || typeof override !== 'object') {
+            return true;
+        }
+
+        return this.validate(value, {
+            ...override,
+            name: fieldName
+        });
+    }
+
     validateModel(data, model) {
+
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
             throw new TypeError('Model data must be an object');
         }
