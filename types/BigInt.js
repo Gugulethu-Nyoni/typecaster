@@ -1,23 +1,41 @@
-module.exports = {
+const BigIntType = {
+
     name: 'BigInt',
 
-    cast(value) {
+    formToDb(value) {
+
         if (value === null || value === undefined) {
             return value;
         }
 
-        if (typeof value === 'boolean') {
-            throw new TypeError('Cannot cast boolean to BigInt');
-        }
-
         if (typeof value === 'string' && value.trim() === '') {
-            throw new TypeError('Cannot cast empty string to BigInt');
+            throw new Error('BigInt cannot be an empty string');
         }
 
         try {
             return BigInt(value);
-        } catch (error) {
-            throw new TypeError(`Cannot cast "${value}" to BigInt`);
+        } catch {
+            throw new Error(`Invalid BigInt value: ${value}`);
         }
+    },
+
+    dbToForm(value) {
+
+        if (value === null || value === undefined) {
+            return value;
+        }
+
+        try {
+            return BigInt(value).toString();
+        } catch {
+            throw new Error(`Invalid BigInt database value: ${value}`);
+        }
+    },
+
+    cast(value) {
+        return this.formToDb(value);
     }
+
 };
+
+export default BigIntType;

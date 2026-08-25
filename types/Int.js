@@ -1,25 +1,43 @@
-module.exports = {
+const IntType = {
+
     name: 'Int',
 
-    cast(value) {
+    formToDb(value) {
+
         if (value === null || value === undefined) {
             return value;
         }
 
-        if (typeof value === 'boolean') {
-            throw new TypeError('Cannot cast boolean to Int');
-        }
-
         if (typeof value === 'string' && value.trim() === '') {
-            throw new TypeError('Cannot cast empty string to Int');
+            throw new Error('Int cannot be an empty string');
         }
 
         const number = Number(value);
 
-        if (!Number.isFinite(number)) {
-            throw new TypeError(`Cannot cast "${value}" to Int`);
+        if (!Number.isInteger(number)) {
+            throw new Error(`Invalid Int value: ${value}`);
         }
 
-        return Math.trunc(number);
+        return number;
+    },
+
+    dbToForm(value) {
+
+        if (value === null || value === undefined) {
+            return value;
+        }
+
+        if (!Number.isInteger(Number(value))) {
+            throw new Error(`Invalid Int database value: ${value}`);
+        }
+
+        return String(value);
+    },
+
+    cast(value) {
+        return this.formToDb(value);
     }
+
 };
+
+export default IntType;

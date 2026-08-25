@@ -1,18 +1,47 @@
-module.exports = {
+const DecimalType = {
+
     name: 'Decimal',
 
-    cast(value) {
+    formToDb(value) {
+
         if (value === null || value === undefined) {
             return value;
         }
 
-        if (typeof value === 'boolean') {
-            throw new TypeError('Cannot cast boolean to Decimal');
+        if (typeof value === 'number') {
+            if (!Number.isFinite(value)) {
+                throw new Error(`Invalid Decimal value: ${value}`);
+            }
+
+            return String(value);
+        }
+
+        if (typeof value !== 'string') {
+            throw new Error(`Invalid Decimal value: ${value}`);
+        }
+
+        const normalized = value.trim();
+
+        if (normalized === '') {
+            throw new Error('Decimal cannot be an empty string');
+        }
+
+        if (!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalized)) {
+            throw new Error(`Invalid Decimal value: ${value}`);
+        }
+
+        return normalized;
+    },
+
+    dbToForm(value) {
+
+        if (value === null || value === undefined) {
+            return value;
         }
 
         if (typeof value === 'number') {
             if (!Number.isFinite(value)) {
-                throw new TypeError(`Cannot cast "${value}" to Decimal`);
+                throw new Error(`Invalid Decimal database value: ${value}`);
             }
 
             return String(value);
@@ -22,20 +51,27 @@ module.exports = {
             return value.toString();
         }
 
-        if (typeof value !== 'string') {
-            throw new TypeError(`Cannot cast "${value}" to Decimal`);
+        if (typeof value === 'object' && typeof value.toString === 'function') {
+            return value.toString();
         }
 
-        const decimal = value.trim();
+        if (typeof value === 'string') {
+            const normalized = value.trim();
 
-        if (decimal === '') {
-            throw new TypeError('Cannot cast empty string to Decimal');
+            if (!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalized)) {
+                throw new Error(`Invalid Decimal database value: ${value}`);
+            }
+
+            return normalized;
         }
 
-        if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(decimal)) {
-            throw new TypeError(`Cannot cast "${value}" to Decimal`);
-        }
+        throw new Error(`Invalid Decimal database value: ${value}`);
+    },
 
-        return decimal;
+    cast(value) {
+        return this.formToDb(value);
     }
+
 };
+
+export default DecimalType;

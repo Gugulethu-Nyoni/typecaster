@@ -1,4 +1,4 @@
-module.exports = {
+const BytesType = {
     name: 'Bytes',
 
     cast(value, options = {}) {
@@ -49,3 +49,5 @@ module.exports = {
         throw new TypeError(`Cannot cast "${value}" to Bytes`);
     }
 };
+
+export default BytesType;
