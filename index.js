@@ -44,10 +44,21 @@ function createTypeRegistry() {
 }
 
 function createTypeCaster(modelRegistry = null) {
-    return new TypeCaster(
-        createTypeRegistry(),
+    const typeRegistry = createTypeRegistry();
+
+    const metadataBuilder = new MetadataBuilder(
+        typeRegistry,
         modelRegistry
     );
+
+    const typeCaster = new TypeCaster(
+        typeRegistry,
+        modelRegistry
+    );
+
+    typeCaster.metadataBuilder = metadataBuilder;
+
+    return typeCaster;
 }
 
 export {
