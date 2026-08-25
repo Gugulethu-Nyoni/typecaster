@@ -1,36 +1,60 @@
 class PostgreSQLProvider {
+  constructor(options = {}) {
+    this.options = options;
+  }
 
-    constructor(options = {}) {
-        this.options = options;
+  getName() {
+    return 'PostgreSQL';
+  }
+
+  normalizeDbValue(value, field = {}) {
+    if (value === null || value === undefined) {
+      return value;
     }
 
-    getName() {
-        return 'PostgreSQL';
+    /*
+     * PostgreSQL drivers may return BIGINT values as strings.
+     * TypeCaster's BigInt caster is responsible for converting
+     * the value into the application's typed representation.
+     *
+     * The provider therefore does not perform scalar casting here.
+     */
+    if (
+      field.type === 'BigInt' &&
+      typeof value === 'string'
+    ) {
+      return value;
     }
 
-    getTypeMapping() {
-        return {
-            String: 'text',
-            Int: 'integer',
-            BigInt: 'bigint',
-            Float: 'double precision',
-            Decimal: 'numeric',
-            Boolean: 'boolean',
-            DateTime: 'timestamp',
-            Json: 'jsonb',
-            Bytes: 'bytea'
-        };
+    /*
+     * PostgreSQL DECIMAL / NUMERIC values are commonly returned
+     * as strings to preserve precision.
+     *
+     * DecimalCaster remains responsible for interpreting them.
+     */
+    if (
+      field.type === 'Decimal' &&
+      typeof value === 'string'
+    ) {
+      return value;
     }
 
-    resolveType(type) {
-        const mapping = this.getTypeMapping();
+    return value;
+  }
 
-        return mapping[type] || null;
+  prepareDbValue(value, field = {}) {
+    if (value === null || value === undefined) {
+      return value;
     }
 
-    supports(type) {
-        return this.resolveType(type) !== null;
-    }
+    /*
+     * PostgreSQL-specific preparation belongs here only when
+     * the database driver requires it.
+     *
+     * Do not perform business transformations here.
+     */
+    return value;
+  }
 }
 
 export default PostgreSQLProvider;
