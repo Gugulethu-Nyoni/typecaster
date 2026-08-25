@@ -1,59 +1,145 @@
-const JsonType = {
+function isJsonValue(value, seen = new Set()) {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean'
+  ) {
+    return true;
+  }
 
-    name: 'Json',
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
 
-    formToDb(value) {
-        if (value === null || value === undefined) {
-            return value;
-        }
+  if (typeof value !== 'object') {
+    return false;
+  }
 
-        if (typeof value === 'string') {
-            if (value.trim() === '') {
-                throw new Error('Json cannot be an empty string');
-            }
+  if (seen.has(value)) {
+    return false;
+  }
 
-            try {
-                return JSON.parse(value);
-            } catch {
-                throw new Error(`Invalid Json value: ${value}`);
-            }
-        }
+  seen.add(value);
 
-        if (typeof value === 'object') {
-            return value;
-        }
-
-        throw new Error(`Invalid Json value: ${value}`);
-    },
-
-    dbToForm(value) {
-        if (value === null || value === undefined) {
-            return value;
-        }
-
-        if (typeof value === 'string') {
-            try {
-                return JSON.parse(value);
-            } catch {
-                throw new Error(
-                    `Invalid Json database value: ${value}`
-                );
-            }
-        }
-
-        if (typeof value === 'object') {
-            return value;
-        }
-
-        throw new Error(
-            `Invalid Json database value: ${value}`
-        );
-    },
-
-    cast(value) {
-        return this.formToDb(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (!isJsonValue(item, seen)) {
+        return false;
+      }
     }
 
+    seen.delete(value);
+
+    return true;
+  }
+
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof key !== 'string') {
+      return false;
+    }
+
+    if (!isJsonValue(item, seen)) {
+      return false;
+    }
+  }
+
+  seen.delete(value);
+
+  return true;
+}
+
+const JsonCaster = {
+  formToDb(value) {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+
+        if (!isJsonValue(parsed)) {
+          throw new TypeError(
+            'JsonCaster.formToDb() parsed value is not valid JSON data.'
+          );
+        }
+
+        return parsed;
+      } catch (error) {
+        if (
+          error instanceof TypeError &&
+          error.message.startsWith('JsonCaster')
+        ) {
+          throw error;
+        }
+
+        throw new TypeError(
+          'JsonCaster.formToDb() received an invalid JSON string.'
+        );
+      }
+    }
+
+    if (!isJsonValue(value)) {
+      throw new TypeError(
+        'JsonCaster.formToDb() received a value that is not valid JSON data.'
+      );
+    }
+
+    return value;
+  },
+
+  dbToForm(value) {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+
+        if (!isJsonValue(parsed)) {
+          throw new TypeError(
+            'JsonCaster.dbToForm() parsed value is not valid JSON data.'
+          );
+        }
+
+        return parsed;
+      } catch (error) {
+        if (
+          error instanceof TypeError &&
+          error.message.startsWith('JsonCaster')
+        ) {
+          throw error;
+        }
+
+        throw new TypeError(
+          'JsonCaster.dbToForm() received an invalid JSON string.'
+        );
+      }
+    }
+
+    if (!isJsonValue(value)) {
+      throw new TypeError(
+        'JsonCaster.dbToForm() received a value that is not valid JSON data.'
+      );
+    }
+
+    return value;
+  },
+
+  assert(value) {
+    if (value === null || value === undefined) {
+      return true;
+    }
+
+    if (!isJsonValue(value)) {
+      throw new TypeError(
+        'JsonCaster.assert() expected valid JSON data.'
+      );
+    }
+
+    return true;
+  },
 };
 
-export default JsonType;
+export default JsonCaster;
