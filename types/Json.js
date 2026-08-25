@@ -3,13 +3,11 @@ const JsonType = {
     name: 'Json',
 
     formToDb(value) {
-
         if (value === null || value === undefined) {
             return value;
         }
 
         if (typeof value === 'string') {
-
             if (value.trim() === '') {
                 throw new Error('Json cannot be an empty string');
             }
@@ -29,31 +27,27 @@ const JsonType = {
     },
 
     dbToForm(value) {
-
         if (value === null || value === undefined) {
             return value;
         }
 
         if (typeof value === 'string') {
-
             try {
-                JSON.parse(value);
-                return value;
+                return JSON.parse(value);
             } catch {
-                throw new Error(`Invalid Json database value: ${value}`);
+                throw new Error(
+                    `Invalid Json database value: ${value}`
+                );
             }
         }
 
         if (typeof value === 'object') {
-
-            try {
-                return JSON.stringify(value);
-            } catch {
-                throw new Error('Invalid Json database value');
-            }
+            return value;
         }
 
-        throw new Error(`Invalid Json database value: ${value}`);
+        throw new Error(
+            `Invalid Json database value: ${value}`
+        );
     },
 
     cast(value) {
