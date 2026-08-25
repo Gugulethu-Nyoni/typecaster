@@ -43,7 +43,10 @@ function createTypeRegistry() {
     return registry;
 }
 
-function createTypeCaster(modelRegistry = null) {
+function createTypeCaster(
+    modelRegistry = null,
+    overrideRegistry = null
+) {
     const typeRegistry = createTypeRegistry();
 
     const metadataBuilder = new MetadataBuilder(
@@ -53,7 +56,8 @@ function createTypeCaster(modelRegistry = null) {
 
     const typeCaster = new TypeCaster(
         typeRegistry,
-        modelRegistry
+        modelRegistry,
+        overrideRegistry
     );
 
     typeCaster.metadataBuilder = metadataBuilder;
