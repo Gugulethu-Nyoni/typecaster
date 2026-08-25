@@ -1,4 +1,5 @@
 class SchemaReader {
+
     constructor(schema = {}) {
         this.schema = schema;
         this.models = new Map();
@@ -36,7 +37,9 @@ class SchemaReader {
 
         for (const [name, definition] of Object.entries(models)) {
             if (!definition || typeof definition !== 'object') {
-                throw new Error(`Model definition for "${name}" must be an object`);
+                throw new Error(
+                    `Model definition for "${name}" must be an object`
+                );
             }
 
             this.models.set(name, {
@@ -65,4 +68,4 @@ class SchemaReader {
     }
 }
 
-module.exports = SchemaReader;
+export default SchemaReader;
