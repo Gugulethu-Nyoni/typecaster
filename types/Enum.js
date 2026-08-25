@@ -1,53 +1,69 @@
-const EnumType = {
+function getEnumValues(metadata = {}) {
+  const values =
+    metadata.values ||
+    metadata.enumValues ||
+    metadata.options;
 
-    name: 'Enum',
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new TypeError(
+      'EnumCaster requires enum values in field metadata.'
+    );
+  }
 
-    formToDb(value, options = {}) {
+  return values;
+}
 
-        if (value === null || value === undefined) {
-            return value;
-        }
-
-        const values = options.values;
-
-        if (!Array.isArray(values) || values.length === 0) {
-            throw new TypeError('Enum values must be a non-empty array');
-        }
-
-        if (!values.includes(value)) {
-            throw new TypeError(
-                `Invalid Enum value "${value}". Expected one of: ${values.join(', ')}`
-            );
-        }
-
-        return value;
-    },
-
-    dbToForm(value, options = {}) {
-
-        if (value === null || value === undefined) {
-            return value;
-        }
-
-        const values = options.values;
-
-        if (!Array.isArray(values) || values.length === 0) {
-            throw new TypeError('Enum values must be a non-empty array');
-        }
-
-        if (!values.includes(value)) {
-            throw new TypeError(
-                `Invalid Enum database value "${value}". Expected one of: ${values.join(', ')}`
-            );
-        }
-
-        return value;
-    },
-
-    cast(value, options = {}) {
-        return this.formToDb(value, options);
+const EnumCaster = {
+  formToDb(value, metadata = {}) {
+    if (value === null || value === undefined) {
+      return value;
     }
 
+    const enumValues = getEnumValues(metadata);
+
+    if (!enumValues.includes(value)) {
+      throw new TypeError(
+        `EnumCaster.formToDb() received invalid enum value: "${value}". ` +
+        `Expected one of: ${enumValues.join(', ')}.`
+      );
+    }
+
+    return value;
+  },
+
+  dbToForm(value, metadata = {}) {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    const enumValues = getEnumValues(metadata);
+
+    if (!enumValues.includes(value)) {
+      throw new TypeError(
+        `EnumCaster.dbToForm() received invalid enum value: "${value}". ` +
+        `Expected one of: ${enumValues.join(', ')}.`
+      );
+    }
+
+    return value;
+  },
+
+  assert(value, metadata = {}) {
+    if (value === null || value === undefined) {
+      return true;
+    }
+
+    const enumValues = getEnumValues(metadata);
+
+    if (!enumValues.includes(value)) {
+      throw new TypeError(
+        `EnumCaster.assert() received invalid enum value: "${value}". ` +
+        `Expected one of: ${enumValues.join(', ')}.`
+      );
+    }
+
+    return true;
+  },
 };
 
-export default EnumType;
+export default EnumCaster;
