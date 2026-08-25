@@ -4,49 +4,86 @@ class OverrideRegistry {
         this.overrides = new Map();
     }
 
-    register(type, override) {
-        if (!type) {
-            throw new Error('Override type is required');
+    register(modelName, fieldName, override) {
+
+        if (!modelName) {
+            throw new Error('Model name is required');
+        }
+
+        if (!fieldName) {
+            throw new Error('Field name is required');
         }
 
         if (!override || typeof override !== 'object') {
             throw new Error(
-                `Override for "${type}" must be an object`
+                `Override for "${modelName}.${fieldName}" must be an object`
             );
         }
 
-        this.overrides.set(type, override);
+        const key = this.createKey(
+            modelName,
+            fieldName
+        );
 
-        return override;
+        this.overrides.set(key, {
+            modelName,
+            fieldName,
+            ...override
+        });
+
+        return this.overrides.get(key);
     }
 
-    resolve(type) {
-        return this.overrides.get(type);
+    resolve(modelName, fieldName) {
+
+        const key = this.createKey(
+            modelName,
+            fieldName
+        );
+
+        return this.overrides.get(key);
     }
 
-    has(type) {
-        return this.overrides.has(type);
+    has(modelName, fieldName) {
+
+        const key = this.createKey(
+            modelName,
+            fieldName
+        );
+
+        return this.overrides.has(key);
     }
 
-    remove(type) {
-        return this.overrides.delete(type);
+    remove(modelName, fieldName) {
+
+        const key = this.createKey(
+            modelName,
+            fieldName
+        );
+
+        return this.overrides.delete(key);
     }
 
     getAll() {
-        return Array.from(this.overrides.entries()).map(
-            ([type, override]) => ({
-                type,
-                ...override
-            })
+
+        return Array.from(
+            this.overrides.values()
         );
     }
 
     clear() {
+
         this.overrides.clear();
     }
 
     size() {
+
         return this.overrides.size;
+    }
+
+    createKey(modelName, fieldName) {
+
+        return `${modelName}.${fieldName}`;
     }
 }
 
