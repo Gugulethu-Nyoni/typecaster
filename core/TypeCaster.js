@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
 import SchemaReader from './SchemaReader.js';
 import TypeRegistry from './TypeRegistry.js';
 import ModelRegistry from './ModelRegistry.js';
@@ -16,6 +19,32 @@ import EnumCaster from '../types/Enum.js';
 import UnsupportedCaster from '../types/Unsupported.js';
 
 class TypeCaster {
+
+  static async fromRegistry(registryPath) {
+    const resolvedPath = registryPath
+      ? pathToFileURL(
+          path.resolve(process.cwd(), registryPath)
+        ).href
+      : pathToFileURL(
+          path.resolve(
+            path.dirname(new URL(import.meta.url).pathname),
+            '../lib/typecaster.registry.js'
+          )
+        ).href;
+
+    const module = await import(resolvedPath);
+
+    if (!module.default) {
+      throw new Error(
+        `TypeCaster registry "${registryPath || '../lib/typecaster.registry.js'}" does not export default metadata.`
+      );
+    }
+
+    return new TypeCaster({
+      metadata: module.default,
+    });
+  }
+
   constructor(options = {}) {
     this.schemaReader =
       options.schemaReader ||
@@ -46,6 +75,10 @@ class TypeCaster {
     } else if (options.schemaPath) {
       this.loadSchema(
         options.schemaPath
+      );
+    } else if (options.registry) {
+      this.loadMetadata(
+        options.registry
       );
     }
   }
