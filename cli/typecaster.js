@@ -138,14 +138,15 @@ function inspectSchema(schemaPath) {
   );
 }
 
-function validateSchema(schemaPath) {
-  const typeCaster = new TypeCaster({
-    schemaPath,
-  });
+async function validateSchema(registryPath) {
+  const typeCaster =
+    await TypeCaster.fromRegistry(
+      registryPath
+    );
 
   if (!typeCaster.metadata) {
     throw new Error(
-      'TypeCaster metadata could not be loaded.'
+      'TypeCaster registry metadata could not be loaded.'
     );
   }
 
@@ -164,7 +165,7 @@ function validateSchema(schemaPath) {
       : 0;
 
   console.log(
-    `TypeCaster schema validation passed. ` +
+    `TypeCaster registry validation passed. ` +
     `${modelCount} model(s), ` +
     `${enumCount} enum(s) loaded.`
   );
