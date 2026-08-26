@@ -6,6 +6,64 @@ Its purpose is deliberately focused:
 
 > **TypeCaster converts external values into schema-compatible typed values, converts database values into application/form representations, verifies prepared data before persistence, and derives reduced metadata for frontend editors.**
 
+
+# Table of Contents
+
+* [@semantq/typecaster](#semantqtypecaster)
+* [What TypeCaster Is](#what-typecaster-is)
+* [TypeCaster Is Native to Semantq QL](#typecaster-is-native-to-semantq-ql)
+* [Core Architecture](#core-architecture)
+* [TypeCaster's Two Architectural Responsibilities](#typecasters-two-architectural-responsibilities)
+
+  * [Schema-Aware Data Casting](#schema-aware-data-casting)
+  * [Frontend and Editor Metadata Projection](#frontend-and-editor-metadata-projection)
+* [Persistence Schema vs Frontend Metadata](#persistence-schema-vs-frontend-metadata)
+* [Schema Generation Workflow](#schema-generation-workflow)
+
+  * [Updating the Prisma Schema](#updating-the-prisma-schema)
+  * [Running `--generate`](#running---generate)
+  * [Inspecting Metadata](#inspecting-metadata)
+  * [Validating the Schema](#validating-the-schema)
+* [Running TypeCaster](#running-typecaster)
+* [The TypeCaster Data Lifecycle](#the-typecaster-data-lifecycle)
+
+  * [`formToDbModel()`](#formtodbmodel)
+  * [Business Logic](#business-logic)
+  * [`assert()`](#assert)
+  * [`dbToFormModel()`](#dbtoformmodel)
+* [Supported Types](#supported-types)
+* [Structural Validation](#structural-validation)
+* [TypeCaster Is Not a Business-Rule Engine](#typecaster-is-not-a-business-rule-engine)
+* [Model Metadata](#model-metadata)
+* [Editor Metadata](#editor-metadata)
+* [Metadata Projection Examples](#metadata-projection-examples)
+* [Relations and Relational Metadata](#relations-and-relational-metadata)
+
+  * [Relations Are Distinct from Scalar Fields](#relations-are-distinct-from-scalar-fields)
+  * [Foreign Keys and Relation Scalars](#foreign-keys-and-relation-scalars)
+  * [Why IDs Are Not Editor Fields](#why-ids-are-not-editor-fields)
+* [Nested Relational Data](#nested-relational-data)
+
+  * [Fetch-Driven Nestedness](#fetch-driven-nestedness)
+  * [Nestedness Depth](#nestedness-depth)
+  * [Example: Resident with Relations](#example-resident-with-relations)
+* [Metadata and the Frontend Contract](#metadata-and-the-frontend-contract)
+* [Metadata and the Backend Data Architecture](#metadata-and-the-backend-data-architecture)
+* [MCSR and TypeCaster](#mcsr-and-typecaster)
+* [Generated Service Pattern](#generated-service-pattern)
+* [Type Handlers](#type-handlers)
+* [Schema Contract Protection](#schema-contract-protection)
+* [TypeCaster and Semantq QL Services](#typecaster-and-semantq-ql-services)
+* [Package Structure](#package-structure)
+* [CLI Reference](#cli-reference)
+* [Developer Workflow](#developer-workflow)
+* [Design Principles](#design-principles)
+* [Architectural Summary](#architectural-summary)
+
+
+
+
+
 TypeCaster does **not** contain business rules.
 
 It also does **not** ship the complete Prisma/database architecture to the frontend.
