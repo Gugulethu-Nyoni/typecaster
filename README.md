@@ -63,7 +63,6 @@ Its purpose is deliberately focused:
 
 
 
-
 TypeCaster does **not** contain business rules.
 
 It also does **not** ship the complete Prisma/database architecture to the frontend.
