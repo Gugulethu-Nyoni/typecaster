@@ -117,16 +117,149 @@ class MetadataBuilder {
       );
     }
 
+    const normalizedFields =
+      this.normalizeFields(
+        fields
+      );
+
+    /*
+     * Relation scalar fields are the scalar FK fields that
+     * back Prisma relation fields.
+     *
+     * Example:
+     *
+     *   organizationId Int
+     *   organization   Organization @relation(
+     *     fields: [organizationId],
+     *     references: [id]
+     *   )
+     *
+     * The registry stores the relation descriptor on
+     * "organization", not on "organizationId".
+     *
+     * Mark the scalar field here so downstream consumers,
+     * such as EditorMetadataBuilder, can distinguish:
+     *
+     *   relation field
+     *   relation scalar / foreign key
+     *   ordinary scalar field
+     *
+     * This is metadata normalisation, not editor-specific
+     * filtering.
+     */
+    this.markRelationScalarFields(
+      normalizedFields
+    );
+
     return {
       ...model,
       name:
         model.name ||
         modelName,
       fields:
-        this.normalizeFields(
-          fields
-        ),
+        normalizedFields,
     };
+  }
+
+  markRelationScalarFields(fields) {
+
+    const entries =
+      fields instanceof Map
+        ? [...fields.entries()]
+        : Object.entries(fields);
+
+    for (
+      const [, field] of entries
+    ) {
+
+      if (
+        !field ||
+        typeof field !== 'object' ||
+        field.isRelation !== true
+      ) {
+        continue;
+      }
+
+      const relationAttributes =
+        Array.isArray(field.attributes)
+          ? field.attributes
+          : [];
+
+      for (
+        const attribute of relationAttributes
+      ) {
+
+        if (
+          !attribute ||
+          attribute.name !== 'relation' ||
+          typeof attribute.arguments !== 'string'
+        ) {
+          continue;
+        }
+
+        const match =
+          attribute.arguments.match(
+            /fields\s*:\s*\[([^\]]*)\]/
+          );
+
+        if (!match) {
+          continue;
+        }
+
+        const relationScalarNames =
+          match[1]
+            .split(',')
+            .map(
+              name =>
+                name
+                  .trim()
+                  .replace(/^["']|["']$/g, '')
+            )
+            .filter(Boolean);
+
+        for (
+          const scalarFieldName of
+          relationScalarNames
+        ) {
+
+          if (
+            fields instanceof Map
+          ) {
+
+            const scalarField =
+              fields.get(
+                scalarFieldName
+              );
+
+            if (
+              scalarField &&
+              typeof scalarField === 'object'
+            ) {
+              fields.set(
+                scalarFieldName,
+                {
+                  ...scalarField,
+                  isRelationScalar: true,
+                }
+              );
+            }
+
+          } else if (
+            fields[scalarFieldName] &&
+            typeof fields[scalarFieldName] === 'object'
+          ) {
+
+            fields[scalarFieldName] = {
+              ...fields[scalarFieldName],
+              isRelationScalar: true,
+            };
+
+          }
+        }
+      }
+    }
+
+    return fields;
   }
 
   normalizeFields(fields) {
