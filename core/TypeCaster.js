@@ -5,6 +5,7 @@ import SchemaReader from './SchemaReader.js';
 import TypeRegistry from './TypeRegistry.js';
 import ModelRegistry from './ModelRegistry.js';
 import MetadataBuilder from './MetadataBuilder.js';
+import EditorMetadataBuilder from './EditorMetadataBuilder.js';
 
 import StringCaster from '../types/String.js';
 import IntCaster from '../types/Int.js';
@@ -63,6 +64,12 @@ class TypeCaster {
     this.modelRegistry =
       options.modelRegistry ||
       new ModelRegistry();
+
+    this.editorMetadataBuilder =
+      options.editorMetadataBuilder ||
+      new EditorMetadataBuilder({
+        modelRegistry: this.modelRegistry,
+      });
 
     this.metadata = null;
 
@@ -150,6 +157,25 @@ class TypeCaster {
       modelName,
       fieldName
     );
+  }
+
+  buildEditorMetadata(modelName, record, recordId) {
+    const model = this.getModel(modelName);
+
+    if (!model) {
+      throw new Error(
+        `Unknown TypeCaster model: "${modelName}".`
+      );
+    }
+
+    return {
+      [modelName]:
+        this.editorMetadataBuilder.build(
+          model,
+          record,
+          recordId
+        ),
+    };
   }
 
   getEnumValues(enumName) {
@@ -495,6 +521,111 @@ class TypeCaster {
 
     return result;
   }
+  attachMetadata(
+    result,
+    modelName
+  ) {
+    const model =
+      this.getModel(
+        modelName
+      );
+
+    const recordId =
+      result.id;
+
+    const metadata =
+      this.editorMetadataBuilder.build(
+        model,
+        recordId
+      );
+
+    Object.defineProperty(
+      result,
+      'metadata',
+      {
+        value: metadata,
+        enumerable: true,
+        configurable: true,
+        writable: false,
+      }
+    );
+
+    return result;
+  }
+
+  getEditorType(field) {
+    if (this.isEnum(field)) {
+      return 'select';
+    }
+
+    if (field.type === 'Json') {
+      return 'textarea';
+    }
+
+    if (field.isList) {
+      switch (field.type) {
+        case 'String':
+          return 'textarea';
+        case 'Int':
+        case 'BigInt':
+        case 'Float':
+        case 'Decimal':
+          return 'number';
+        case 'Boolean':
+          return 'checkbox';
+        case 'DateTime':
+          return 'datetime-local';
+        default:
+          return 'textarea';
+      }
+    }
+
+    switch (field.type) {
+      case 'String':
+        return 'text';
+      case 'Int':
+      case 'BigInt':
+      case 'Float':
+      case 'Decimal':
+        return 'number';
+      case 'Boolean':
+        return 'checkbox';
+      case 'DateTime':
+        return 'datetime-local';
+      case 'Bytes':
+        return 'file';
+      case 'Json':
+        return 'textarea';
+      default:
+        return 'text';
+    }
+  }
+
+  getStructure(field) {
+    if (this.isEnum(field)) {
+      return {
+        type: 'select',
+        options: this.getEnumValues(field.type),
+      };
+    }
+
+    if (field.type === 'Json') {
+      return {
+        type: 'json',
+      };
+    }
+
+    if (field.isList) {
+      return {
+        type: 'array',
+      };
+    }
+
+    return undefined;
+  }
+
+
+
 
   dbToFormModel(
     data,
@@ -547,7 +678,10 @@ class TypeCaster {
       }
     }
 
-    return result;
+    return this.attachMetadata(
+      result,
+      modelName
+    );
   }
 
   assert(
