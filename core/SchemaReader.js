@@ -51,6 +51,10 @@ class SchemaReader {
       models
     );
 
+    this.resolveRelations(
+      models,
+      enums
+    );
     return {
       models,
       enums,
@@ -121,19 +125,47 @@ class SchemaReader {
         nullableMarker
       );
 
+      const parsedAttributes =
+        this.parseAttributes(attributes);
+
       fields[name] = {
         name,
         type,
         nullable,
+        required: !nullable,
         isList,
-        attributes:
-          this.parseAttributes(
-            attributes
-          ),
+        isRelation: false,
+        relation: null,
+        attributes: parsedAttributes,
       };
     }
 
     return fields;
+  }
+
+  resolveRelations(models, enums) {
+    const modelNames = new Set(
+      Object.keys(models)
+    );
+
+    const enumNames = new Set(
+      Object.keys(enums)
+    );
+
+    for (const model of Object.values(models)) {
+      for (const field of Object.values(model.fields)) {
+        if (
+          modelNames.has(field.type) &&
+          !enumNames.has(field.type)
+        ) {
+          field.isRelation = true;
+          field.relation = {
+            model: field.type,
+            isList: field.isList,
+          };
+        }
+      }
+    }
   }
 
   parseAttributes(attributes) {
