@@ -125,8 +125,35 @@ class SchemaReader {
         nullableMarker
       );
 
-      const parsedAttributes =
+      /*
+       * Semantq editor annotation.
+       *
+       * Example:
+       *
+       * contactData Json?
+       *   /// @editor predefined-key-values email:text mobile:text url:url
+       *
+       * The annotation is kept as an editor attribute so that
+       * MetadataBuilder can interpret the editor structure later.
+       */
+      const editorAnnotation =
+        attributes.match(
+          /\/\/\/\s*@editor\s+(.+)$/
+        );
+
+      let parsedAttributes =
         this.parseAttributes(attributes);
+
+      if (editorAnnotation) {
+        parsedAttributes = [
+          ...parsedAttributes,
+          {
+            name: 'editor',
+            arguments:
+              editorAnnotation[1].trim(),
+          },
+        ];
+      }
 
       fields[name] = {
         name,
