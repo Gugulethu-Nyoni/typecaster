@@ -55,8 +55,17 @@ const JsonCaster = {
     }
 
     if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (trimmed.includes(',')) {
+        return trimmed
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+      }
+
       try {
-        const parsed = JSON.parse(value);
+        const parsed = JSON.parse(trimmed);
 
         if (!isJsonValue(parsed)) {
           throw new TypeError(
