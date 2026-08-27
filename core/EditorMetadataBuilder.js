@@ -752,7 +752,7 @@ class EditorMetadataBuilder {
   buildCustomKeyStructure(definition) {
 
     const structure = {
-      type: 'custom-key'
+      type: 'custom-key-value'
     };
 
     for (const token of definition) {
@@ -787,43 +787,6 @@ class EditorMetadataBuilder {
     return structure;
   }
 
-  buildCustomKeyStructure(definition) {
-
-    const structure = {
-      type: 'custom-key'
-    };
-
-    for (const token of definition) {
-
-      const separator =
-        token.indexOf(':');
-
-      if (separator <= 0) {
-        continue;
-      }
-
-      const key =
-        token.slice(0, separator).trim();
-
-      const editor =
-        token.slice(separator + 1).trim();
-
-      if (!key || !editor) {
-        continue;
-      }
-
-      if (
-        key === 'key' ||
-        key === 'value'
-      ) {
-        structure[key] = {
-          editor
-        };
-      }
-    }
-
-    return structure;
-  }
 
   buildJsonStructure(field) {
 
