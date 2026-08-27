@@ -10,12 +10,13 @@ class MetadataBuilder {
       );
     }
 
-    const models = this.normalizeModels(
-      schema.models || {}
-    );
-
     const enums = this.normalizeEnums(
       schema.enums || {}
+    );
+
+    const models = this.normalizeModels(
+      schema.models || {},
+      enums
     );
 
     return {
@@ -47,7 +48,7 @@ class MetadataBuilder {
     return this.build(schema);
   }
 
-  normalizeModels(models) {
+  normalizeModels(models, enums = {}) {
     if (
       !models ||
       typeof models !== 'object' ||
@@ -60,7 +61,8 @@ class MetadataBuilder {
 
     if (models instanceof Map) {
       return this.normalizeModelMap(
-        models
+        models,
+        enums
       );
     }
 
@@ -72,14 +74,15 @@ class MetadataBuilder {
       normalized[modelName] =
         this.normalizeModel(
           modelName,
-          model
+          model,
+          enums
         );
     }
 
     return normalized;
   }
 
-  normalizeModelMap(models) {
+  normalizeModelMap(models, enums = {}) {
     const normalized = new Map();
 
     for (
@@ -89,7 +92,8 @@ class MetadataBuilder {
         modelName,
         this.normalizeModel(
           modelName,
-          model
+          model,
+          enums
         )
       );
     }
@@ -97,7 +101,7 @@ class MetadataBuilder {
     return normalized;
   }
 
-  normalizeModel(modelName, model) {
+  normalizeModel(modelName, model, enums = {}) {
     if (!model || typeof model !== 'object') {
       throw new TypeError(
         `Invalid metadata for model "${modelName}".`
@@ -119,7 +123,8 @@ class MetadataBuilder {
 
     const normalizedFields =
       this.normalizeFields(
-        fields
+        fields,
+        enums
       );
 
     /*
@@ -262,10 +267,11 @@ class MetadataBuilder {
     return fields;
   }
 
-  normalizeFields(fields) {
+  normalizeFields(fields, enums = {}) {
     if (fields instanceof Map) {
       return this.normalizeFieldMap(
-        fields
+        fields,
+        enums
       );
     }
 
@@ -277,14 +283,15 @@ class MetadataBuilder {
       normalized[fieldName] =
         this.normalizeField(
           fieldName,
-          field
+          field,
+          enums
         );
     }
 
     return normalized;
   }
 
-  normalizeFieldMap(fields) {
+  normalizeFieldMap(fields, enums = {}) {
     const normalized = new Map();
 
     for (
@@ -294,7 +301,8 @@ class MetadataBuilder {
         fieldName,
         this.normalizeField(
           fieldName,
-          field
+          field,
+          enums
         )
       );
     }
@@ -302,7 +310,7 @@ class MetadataBuilder {
     return normalized;
   }
 
-  normalizeField(fieldName, field) {
+  normalizeField(fieldName, field, enums = {}) {
     if (!field || typeof field !== 'object') {
       throw new TypeError(
         `Invalid metadata for field "${fieldName}".`
@@ -320,7 +328,7 @@ class MetadataBuilder {
       );
     }
 
-    return {
+    const normalized = {
       ...field,
       name:
         field.name ||
@@ -331,6 +339,19 @@ class MetadataBuilder {
       isList:
         field.isList === true,
     };
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        enums,
+        type
+      )
+    ) {
+      normalized.enumValues = [
+        ...enums[type]
+      ];
+    }
+
+    return normalized;
   }
 
   normalizeEnums(enums) {
