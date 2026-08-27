@@ -542,6 +542,22 @@ class EditorMetadataBuilder {
         props.selected =
           field.selected;
       }
+
+      const selectedAttribute =
+        Array.isArray(field.attributes)
+          ? field.attributes.find(
+              (attribute) =>
+                attribute &&
+                attribute.name === 'selected' &&
+                typeof attribute.arguments === 'string' &&
+                attribute.arguments.trim()
+            )
+          : null;
+
+      if (selectedAttribute) {
+        props.selected =
+          selectedAttribute.arguments.trim();
+      }
     }
 
     /*
