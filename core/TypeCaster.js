@@ -322,20 +322,7 @@ class TypeCaster {
     const caster =
       this.resolveCaster(field);
 
-    console.log(
-      '[TypeCaster] castValue:',
-      {
-        modelName,
-        field: field.name,
-        fieldType: field.type,
-        isList: field.isList,
-        direction,
-        value,
-        valueIsArray: Array.isArray(value),
-        caster: caster?.constructor?.name || typeof caster
-      }
-    );
-
+    
     if (!caster) {
       console.warn(
         '[TypeCaster] No caster resolved:',
@@ -370,18 +357,7 @@ class TypeCaster {
         : {}),
     };
 
-    console.log(
-      '[TypeCaster] Resolved field metadata:',
-      {
-        modelName,
-        field: field.name,
-        fieldType: field.type,
-        isList: field.isList,
-        metadata,
-        enumValues: metadata.values
-      }
-    );
-
+    
     if (direction === 'formToDb') {
       return caster.formToDb(
         value,
@@ -490,18 +466,7 @@ class TypeCaster {
         data[fieldName];
 
       if (field.isList === true) {
-        console.log(
-          '[TypeCaster] Array field input:',
-          {
-            modelName,
-            fieldName,
-            type: field.type,
-            value,
-            valueType: typeof value,
-            isArray: Array.isArray(value),
-          }
-        );
-      }
+              }
 
       result[fieldName] =
         this.castValue(
@@ -672,18 +637,7 @@ class TypeCaster {
       const value =
         data[fieldName];
 
-      console.log(
-        '[TypeCaster] dbToFormModel field:',
-        {
-          modelName,
-          fieldName,
-          fieldType: field.type,
-          isList: field.isList,
-          rawValue: value,
-          rawValueIsArray: Array.isArray(value)
-        }
-      );
-
+      
       const converted =
         this.castValue(
           value,
@@ -692,16 +646,7 @@ class TypeCaster {
           'dbToForm'
         );
 
-      console.log(
-        '[TypeCaster] dbToFormModel converted:',
-        {
-          modelName,
-          fieldName,
-          converted,
-          convertedIsArray: Array.isArray(converted)
-        }
-      );
-
+      
       if (converted !== undefined) {
         result[fieldName] =
           converted;
