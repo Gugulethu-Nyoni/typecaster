@@ -203,19 +203,23 @@ class SchemaReader {
     const results = [];
 
     const attributePattern =
-      /@([A-Za-z_][A-Za-z0-9_]*)(?:\s*\(([^)]*)\))?/g;
+      /@([A-Za-z_][A-Za-z0-9_]*)(?:\s*\(([^)]*)\)|\s*:\s*([^\s]+))?/g;
 
     let match;
 
     while (
       (match = attributePattern.exec(attributes)) !== null
     ) {
+      const argument =
+        match[2] !== undefined
+          ? match[2].trim()
+          : match[3] !== undefined
+            ? match[3].trim()
+            : null;
+
       results.push({
         name: match[1],
-        arguments:
-          match[2] !== undefined
-            ? match[2].trim()
-            : null,
+        arguments: argument,
       });
     }
 
