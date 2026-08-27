@@ -8,6 +8,7 @@ import MetadataBuilder from './MetadataBuilder.js';
 import EditorMetadataBuilder from './EditorMetadataBuilder.js';
 
 import StringCaster from '../types/String.js';
+import StringListCaster from '../types/StringList.js';
 import IntCaster from '../types/Int.js';
 import BigIntCaster from '../types/BigInt.js';
 import FloatCaster from '../types/Float.js';
@@ -17,6 +18,7 @@ import DateTimeCaster from '../types/DateTime.js';
 import JsonCaster from '../types/Json.js';
 import BytesCaster from '../types/Bytes.js';
 import EnumCaster from '../types/Enum.js';
+import EnumListCaster from '../types/EnumList.js';
 import UnsupportedCaster from '../types/Unsupported.js';
 
 class TypeCaster {
@@ -93,6 +95,7 @@ class TypeCaster {
   registerBuiltIns() {
     const builtIns = {
       String: StringCaster,
+      StringList: StringListCaster,
       Int: IntCaster,
       BigInt: BigIntCaster,
       Float: FloatCaster,
@@ -102,6 +105,7 @@ class TypeCaster {
       Json: JsonCaster,
       Bytes: BytesCaster,
       Enum: EnumCaster,
+      EnumList: EnumListCaster,
       Unsupported: UnsupportedCaster,
     };
 
@@ -247,9 +251,27 @@ class TypeCaster {
       return null;
     }
 
+    if (
+      field.isList === true &&
+      this.isEnum(field)
+    ) {
+      return this.typeRegistry.resolve(
+        'EnumList'
+      );
+    }
+
     if (this.isEnum(field)) {
       return this.typeRegistry.resolve(
         'Enum'
+      );
+    }
+
+    if (
+      field.isList === true &&
+      field.type === 'String'
+    ) {
+      return this.typeRegistry.resolve(
+        'StringList'
       );
     }
 
@@ -300,7 +322,31 @@ class TypeCaster {
     const caster =
       this.resolveCaster(field);
 
+    console.log(
+      '[TypeCaster] castValue:',
+      {
+        modelName,
+        field: field.name,
+        fieldType: field.type,
+        isList: field.isList,
+        direction,
+        value,
+        valueIsArray: Array.isArray(value),
+        caster: caster?.constructor?.name || typeof caster
+      }
+    );
+
     if (!caster) {
+      console.warn(
+        '[TypeCaster] No caster resolved:',
+        {
+          modelName,
+          field: field.name,
+          fieldType: field.type,
+          isList: field.isList
+        }
+      );
+
       return undefined;
     }
 
@@ -311,50 +357,6 @@ class TypeCaster {
         direction,
         null
       );
-
-    if (field.isList) {
-      if (!Array.isArray(value)) {
-        throw new TypeError(
-          `"${modelName}.${field.name}" ` +
-          'expects a list value.'
-        );
-      }
-
-      return value.map(
-        (item) =>
-          direction === 'formToDb'
-            ? caster.formToDb(
-                item,
-                {
-                  ...field,
-                  ...(this.isEnum(field)
-                    ? {
-                        values:
-                          this.getEnumValues(
-                            field.type
-                          ),
-                      }
-                    : {}),
-                },
-                context
-              )
-            : caster.dbToForm(
-                item,
-                {
-                  ...field,
-                  ...(this.isEnum(field)
-                    ? {
-                        values:
-                          this.getEnumValues(
-                            field.type
-                          ),
-                      }
-                    : {}),
-                },
-                context
-              )
-      );
-    }
 
     const metadata = {
       ...field,
@@ -367,6 +369,18 @@ class TypeCaster {
           }
         : {}),
     };
+
+    console.log(
+      '[TypeCaster] Resolved field metadata:',
+      {
+        modelName,
+        field: field.name,
+        fieldType: field.type,
+        isList: field.isList,
+        metadata,
+        enumValues: metadata.values
+      }
+    );
 
     if (direction === 'formToDb') {
       return caster.formToDb(
@@ -429,26 +443,6 @@ class TypeCaster {
         : {}),
     };
 
-    if (field.isList) {
-      if (!Array.isArray(value)) {
-        throw new TypeError(
-          `"${modelName}.${field.name}" ` +
-          'expects a list value.'
-        );
-      }
-
-      for (
-        const item of value
-      ) {
-        caster.assert(
-          item,
-          metadata
-        );
-      }
-
-      return true;
-    }
-
     caster.assert(
       value,
       metadata
@@ -494,6 +488,20 @@ class TypeCaster {
 
       const value =
         data[fieldName];
+
+      if (field.isList === true) {
+        console.log(
+          '[TypeCaster] Array field input:',
+          {
+            modelName,
+            fieldName,
+            type: field.type,
+            value,
+            valueType: typeof value,
+            isArray: Array.isArray(value),
+          }
+        );
+      }
 
       result[fieldName] =
         this.castValue(
@@ -664,6 +672,18 @@ class TypeCaster {
       const value =
         data[fieldName];
 
+      console.log(
+        '[TypeCaster] dbToFormModel field:',
+        {
+          modelName,
+          fieldName,
+          fieldType: field.type,
+          isList: field.isList,
+          rawValue: value,
+          rawValueIsArray: Array.isArray(value)
+        }
+      );
+
       const converted =
         this.castValue(
           value,
@@ -671,6 +691,16 @@ class TypeCaster {
           modelName,
           'dbToForm'
         );
+
+      console.log(
+        '[TypeCaster] dbToFormModel converted:',
+        {
+          modelName,
+          fieldName,
+          converted,
+          convertedIsArray: Array.isArray(converted)
+        }
+      );
 
       if (converted !== undefined) {
         result[fieldName] =
