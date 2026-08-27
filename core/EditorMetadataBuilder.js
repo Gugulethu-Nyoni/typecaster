@@ -448,6 +448,34 @@ class EditorMetadataBuilder {
     }
 
     /*
+     * Semantq schema editor annotation.
+     *
+     * Example:
+     *
+     * contactData Json?
+     *   /// @editor predefined-key-values email:text mobile:text url:url
+     *
+     * The annotation describes the frontend editor rather
+     * than changing the underlying Prisma field type.
+     */
+    const editorAnnotation =
+      this.getEditorAnnotation(field);
+
+    if (editorAnnotation) {
+      const [editorType] =
+        editorAnnotation.split(/\s+/);
+
+      if (
+        editorType ===
+        'predefined-key-values' ||
+        editorType ===
+        'custom-key-value'
+      ) {
+        return 'key-value';
+      }
+    }
+
+    /*
      * Explicit frontend editor override.
      */
     if (
@@ -455,6 +483,13 @@ class EditorMetadataBuilder {
       field.editor.trim()
     ) {
       return field.editor;
+    }
+
+    if (
+      field.isList === true &&
+      field.type === 'String'
+    ) {
+      return 'textarea';
     }
 
     switch (field.type) {
@@ -526,6 +561,41 @@ class EditorMetadataBuilder {
             field
           )
       };
+    }
+
+    /*
+     * Semantq schema editor annotation.
+     */
+    const editorAnnotation =
+      this.getEditorAnnotation(field);
+
+    if (editorAnnotation) {
+      const [editorType, ...definition] =
+        editorAnnotation.split(/\s+/);
+
+      if (
+        editorType ===
+        'predefined-key-values'
+      ) {
+        props.structure =
+          this.buildPredefinedKeyStructure(
+            definition
+          );
+
+        return props;
+      }
+
+      if (
+        editorType ===
+        'custom-key-value'
+      ) {
+        props.structure =
+          this.buildCustomKeyStructure(
+            definition
+          );
+
+        return props;
+      }
     }
 
     /*
@@ -622,6 +692,137 @@ class EditorMetadataBuilder {
     }
 
     return item;
+  }
+
+  getEditorAnnotation(field) {
+
+    if (
+      !field ||
+      !Array.isArray(field.attributes)
+    ) {
+      return null;
+    }
+
+    const attribute =
+      field.attributes.find(
+        (item) =>
+          item &&
+          item.name === 'editor' &&
+          typeof item.arguments === 'string' &&
+          item.arguments.trim()
+      );
+
+    return attribute
+      ? attribute.arguments.trim()
+      : null;
+  }
+
+  buildPredefinedKeyStructure(definition) {
+
+    const fields = {};
+
+    for (const token of definition) {
+      const separator = token.indexOf(':');
+
+      if (separator <= 0) {
+        continue;
+      }
+
+      const key =
+        token.slice(0, separator).trim();
+
+      const editor =
+        token.slice(separator + 1).trim();
+
+      if (!key || !editor) {
+        continue;
+      }
+
+      fields[key] = {
+        editor
+      };
+    }
+
+    return {
+      type: 'predefined-key',
+      fields
+    };
+  }
+
+  buildCustomKeyStructure(definition) {
+
+    const structure = {
+      type: 'custom-key'
+    };
+
+    for (const token of definition) {
+
+      const separator =
+        token.indexOf(':');
+
+      if (separator <= 0) {
+        continue;
+      }
+
+      const key =
+        token.slice(0, separator).trim();
+
+      const editor =
+        token.slice(separator + 1).trim();
+
+      if (!key || !editor) {
+        continue;
+      }
+
+      if (
+        key === 'key' ||
+        key === 'value'
+      ) {
+        structure[key] = {
+          editor
+        };
+      }
+    }
+
+    return structure;
+  }
+
+  buildCustomKeyStructure(definition) {
+
+    const structure = {
+      type: 'custom-key'
+    };
+
+    for (const token of definition) {
+
+      const separator =
+        token.indexOf(':');
+
+      if (separator <= 0) {
+        continue;
+      }
+
+      const key =
+        token.slice(0, separator).trim();
+
+      const editor =
+        token.slice(separator + 1).trim();
+
+      if (!key || !editor) {
+        continue;
+      }
+
+      if (
+        key === 'key' ||
+        key === 'value'
+      ) {
+        structure[key] = {
+          editor
+        };
+      }
+    }
+
+    return structure;
   }
 
   buildJsonStructure(field) {
