@@ -494,6 +494,7 @@ class TypeCaster {
 
     return result;
   }
+
   attachMetadata(
     result,
     modelName
@@ -506,9 +507,11 @@ class TypeCaster {
     const recordId =
       result.id;
 
+    // 🔥 Pass the result so relation metadata is filtered by what was fetched
     const metadata =
       this.editorMetadataBuilder.build(
         model,
+        result,
         recordId
       );
 
@@ -597,13 +600,20 @@ class TypeCaster {
     return undefined;
   }
 
+  // ─── DB TO FORM (with relation preservation) ──────
 
-
+    // ─── DB TO FORM (with relation preservation) ──────
 
   dbToFormModel(
     data,
     modelName
   ) {
+    // ✅ Handle null/undefined by returning metadata-only
+    if (data == null) {
+      const result = {};
+      return this.attachMetadata(result, modelName);
+    }
+    
     if (
       !data ||
       typeof data !== 'object' ||
@@ -621,10 +631,17 @@ class TypeCaster {
 
     const result = {};
 
+    // ─── 1. PROCESS SCALAR FIELDS ──────────────────
+
     for (
       const [fieldName, field] of
       model.fields
     ) {
+      // Skip relations — they're handled separately
+      if (field.isRelation === true) {
+        continue;
+      }
+
       if (
         !Object.prototype.hasOwnProperty.call(
           data,
@@ -637,7 +654,6 @@ class TypeCaster {
       const value =
         data[fieldName];
 
-      
       const converted =
         this.castValue(
           value,
@@ -646,18 +662,51 @@ class TypeCaster {
           'dbToForm'
         );
 
-      
       if (converted !== undefined) {
-        result[fieldName] =
-          converted;
+        result[fieldName] = converted;
       }
     }
+
+    // ─── 2. PRESERVE FETCHED RELATIONS ─────────────
+
+    const relationFields = model.relations || {};
+
+    for (const [relationName, relationMeta] of Object.entries(relationFields)) {
+      // Only include if the relation was actually fetched
+      if (!Object.prototype.hasOwnProperty.call(data, relationName)) {
+        continue;
+      }
+
+      const relationData = data[relationName];
+
+      if (relationData === null || relationData === undefined) {
+        result[relationName] = null;
+        continue;
+      }
+
+      // Recursively process relation data
+      if (relationMeta.isList) {
+        result[relationName] = relationData.map((item) =>
+          this.dbToFormModel(item, relationMeta.type)
+        );
+      } else {
+        result[relationName] = this.dbToFormModel(relationData, relationMeta.type);
+      }
+    }
+
+    // ─── 3. ATTACH METADATA ────────────────────────
 
     return this.attachMetadata(
       result,
       modelName
     );
   }
+
+
+
+
+
+
 
   assert(
     data,
