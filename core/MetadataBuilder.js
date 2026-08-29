@@ -102,69 +102,89 @@ class MetadataBuilder {
   }
 
   normalizeModel(modelName, model, enums = {}) {
-    if (!model || typeof model !== 'object') {
-      throw new TypeError(
-        `Invalid metadata for model "${modelName}".`
-      );
-    }
+  if (!model || typeof model !== 'object') {
+    throw new TypeError(
+      `Invalid metadata for model "${modelName}".`
+    );
+  }
 
-    const fields =
-      model.fields || {};
+  const fields =
+    model.fields || {};
 
-    if (
-      !fields ||
-      typeof fields !== 'object' ||
-      Array.isArray(fields)
-    ) {
-      throw new TypeError(
-        `Invalid fields metadata for model "${modelName}".`
-      );
-    }
+  if (
+    !fields ||
+    typeof fields !== 'object' ||
+    Array.isArray(fields)
+  ) {
+    throw new TypeError(
+      `Invalid fields metadata for model "${modelName}".`
+    );
+  }
 
-    const normalizedFields =
-      this.normalizeFields(
-        fields,
-        enums
-      );
-
-    /*
-     * Relation scalar fields are the scalar FK fields that
-     * back Prisma relation fields.
-     *
-     * Example:
-     *
-     *   organizationId Int
-     *   organization   Organization @relation(
-     *     fields: [organizationId],
-     *     references: [id]
-     *   )
-     *
-     * The registry stores the relation descriptor on
-     * "organization", not on "organizationId".
-     *
-     * Mark the scalar field here so downstream consumers,
-     * such as EditorMetadataBuilder, can distinguish:
-     *
-     *   relation field
-     *   relation scalar / foreign key
-     *   ordinary scalar field
-     *
-     * This is metadata normalisation, not editor-specific
-     * filtering.
-     */
-    this.markRelationScalarFields(
-      normalizedFields
+  const normalizedFields =
+    this.normalizeFields(
+      fields,
+      enums
     );
 
-    return {
-      ...model,
-      name:
-        model.name ||
-        modelName,
-      fields:
-        normalizedFields,
-    };
+  // 🔥 NEW: Collect relation descriptors keyed by field name
+  const relations = {};
+
+  const entries =
+    normalizedFields instanceof Map
+      ? [...normalizedFields.entries()]
+      : Object.entries(normalizedFields);
+
+  for (const [fieldName, field] of entries) {
+    if (field.isRelation === true) {
+      relations[fieldName] = {
+        type: field.relation?.model || field.type,
+        isList: field.isList === true,
+        nullable: field.nullable === true,
+      };
+    }
   }
+
+  /*
+   * Relation scalar fields are the scalar FK fields that
+   * back Prisma relation fields.
+   *
+   * Example:
+   *
+   *   organizationId Int
+   *   organization   Organization @relation(
+   *     fields: [organizationId],
+   *     references: [id]
+   *   )
+   *
+   * The registry stores the relation descriptor on
+   * "organization", not on "organizationId".
+   *
+   * Mark the scalar field here so downstream consumers,
+   * such as EditorMetadataBuilder, can distinguish:
+   *
+   *   relation field
+   *   relation scalar / foreign key
+   *   ordinary scalar field
+   *
+   * This is metadata normalisation, not editor-specific
+   * filtering.
+   */
+  this.markRelationScalarFields(
+    normalizedFields
+  );
+
+  return {
+    ...model,
+    name:
+      model.name ||
+      modelName,
+    fields:
+      normalizedFields,
+    relations, //  NEW: Expose relations collection
+  };
+}
+
 
   markRelationScalarFields(fields) {
 
@@ -310,49 +330,60 @@ class MetadataBuilder {
     return normalized;
   }
 
-  normalizeField(fieldName, field, enums = {}) {
-    if (!field || typeof field !== 'object') {
-      throw new TypeError(
-        `Invalid metadata for field "${fieldName}".`
-      );
-    }
-
-    const type =
-      typeof field.type === 'string'
-        ? field.type.trim()
-        : '';
-
-    if (!type) {
-      throw new TypeError(
-        `Field "${fieldName}" is missing its type metadata.`
-      );
-    }
-
-    const normalized = {
-      ...field,
-      name:
-        field.name ||
-        fieldName,
-      type,
-      nullable:
-        field.nullable === true,
-      isList:
-        field.isList === true,
-    };
-
-    if (
-      Object.prototype.hasOwnProperty.call(
-        enums,
-        type
-      )
-    ) {
-      normalized.enumValues = [
-        ...enums[type]
-      ];
-    }
-
-    return normalized;
+ normalizeField(fieldName, field, enums = {}) {
+  if (!field || typeof field !== 'object') {
+    throw new TypeError(
+      `Invalid metadata for field "${fieldName}".`
+    );
   }
+
+  const type =
+    typeof field.type === 'string'
+      ? field.type.trim()
+      : '';
+
+  if (!type) {
+    throw new TypeError(
+      `Field "${fieldName}" is missing its type metadata.`
+    );
+  }
+
+  const normalized = {
+    ...field,
+    name:
+      field.name ||
+      fieldName,
+    type,
+    nullable:
+      field.nullable === true,
+    isList:
+      field.isList === true,
+  };
+
+  // 🔥 NEW: Preserve relation metadata
+  if (field.isRelation === true) {
+    normalized.isRelation = true;
+    normalized.relation = {
+      model: field.relation?.model || field.type,
+      isList: field.isList === true,
+    };
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      enums,
+      type
+    )
+  ) {
+    normalized.enumValues = [
+      ...enums[type]
+    ];
+  }
+
+  return normalized;
+}
+
+
 
   normalizeEnums(enums) {
     if (
