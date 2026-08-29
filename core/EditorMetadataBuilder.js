@@ -25,54 +25,35 @@ class EditorMetadataBuilder {
    * Contract:
    *
    * {
-   *   Resident: {
-   *     fields: {
-   *       firstName: {
-   *         editor: 'text',
-   *         required: true,
-   *         nullable: false
-   *       }
-   *     },
+   *   fields: {
+   *     firstName: {
+   *       editor: 'text',
+   *       required: true,
+   *       nullable: false
+   *     }
+   *   },
    *
-   *     relations: {
-   *       CarePlan: {
-   *         fields: {
-   *           name: {
-   *             editor: 'text',
-   *             required: true,
-   *             nullable: false
-   *           }
-   *         },
-   *
-   *         relations: {
-   *           CarePlanGoal: {
-   *             fields: {
-   *               title: {
-   *                 editor: 'text',
-   *                 required: true,
-   *                 nullable: false
-   *               }
-   *             }
-   *           }
+   *   relations: {
+   *     representatives: {
+   *       type: 'ResidentRepresentative',
+   *       isList: true,
+   *       nullable: true,
+   *       fields: {
+   *         firstName: {
+   *           editor: 'text',
+   *           required: true,
+   *           nullable: false
    *         }
-   *       }
+   *       },
+   *       relations: {}
    *     }
    *   }
    * }
    *
-   * Backend relation implementation details are deliberately
-   * excluded from the frontend contract.
+   * Relations are keyed by field name, not model name.
+   * No "editor": "relation" — relations are structural, not editable.
    */
-
-  /*
-   * Build frontend editor metadata from the ACTUAL fetched record.
-   *
-   * The fetched record determines which relations exist.
-   *
-   * ModelRegistry is used only to resolve metadata for relations
-   * that are actually present in the fetched data.
-   */
-  build(
+    build(
     model,
     record = {},
     recordId = null,
@@ -116,6 +97,8 @@ class EditorMetadataBuilder {
     const fields = {};
     const relations = {};
 
+    // ─── 1. SCALAR FIELDS ────────────────────────
+
     for (
       const [fieldName, field] of
       this.entries(model.fields)
@@ -124,142 +107,104 @@ class EditorMetadataBuilder {
         continue;
       }
 
-      /*
-       * RELATION HANDLING
-       *
-       * A relation is included ONLY if the relation property
-       * actually exists on the fetched record.
-       *
-       * This is the critical distinction:
-       *
-       * ModelRegistry tells us what a relation IS.
-       * The fetched record tells us whether it was FETCHED.
-       */
+      // Skip relation fields — they're handled via model.relations
       if (field.isRelation === true) {
-        if (
-          depth >=
-          this.maxRelationDepth
-        ) {
-          continue;
-        }
-
-        /*
-         * Do not expose relations merely because Prisma defines
-         * them on the model.
-         */
-        if (
-          !Object.prototype.hasOwnProperty.call(
-            sourceRecord,
-            fieldName
-          )
-        ) {
-          continue;
-        }
-
-        const relatedModelName =
-          this.getRelatedModelName(field);
-
-        if (!relatedModelName) {
-          continue;
-        }
-
-        /*
-         * Prevent cycles such as:
-         *
-         * Resident
-         *   -> Organization
-         *      -> Resident
-         */
-        if (
-          currentVisited.has(
-            relatedModelName
-          )
-        ) {
-          continue;
-        }
-
-        const relatedRecord =
-          sourceRecord[fieldName];
-
-        const relatedMetadata =
-          this.buildFetchedRelation(
-            relatedModelName,
-            relatedRecord,
-            recordId,
-            currentVisited,
-            depth + 1
-          );
-
-        if (relatedMetadata) {
-          relations[relatedModelName] =
-            relatedMetadata;
-        }
-
         continue;
       }
 
-      /*
-       * Identifiers are not frontend-editable.
-       */
-      if (
-        this.isIdentifier(
-          fieldName,
-          field
-        )
-      ) {
+      // Identifiers are not frontend-editable
+      if (this.isIdentifier(fieldName, field)) {
         continue;
       }
 
-      /*
-       * Prisma-managed fields are not frontend-editable.
-       */
-      if (
-        this.isManagedField(
-          fieldName,
-          field
-        )
-      ) {
+      // Prisma-managed fields are not frontend-editable
+      if (this.isManagedField(fieldName, field)) {
         continue;
       }
 
-      /*
-       * Foreign-key scalar fields are implementation details of
-       * Prisma relations and are not independent frontend editors.
-       *
-       * Examples:
-       *
-       *   organizationId
-       *   residentId
-       *   createdById
-       *   updatedById
-       *   currentVersionId
-       *
-       * The relation itself is represented through metadata.relations
-       * when that relation was actually included in the fetched record.
-       */
-      if (
-        this.isRelationScalarField(field)
-      ) {
+      // Foreign-key scalar fields are implementation details
+      if (this.isRelationScalarField(field)) {
         continue;
       }
 
-      fields[fieldName] =
-        this.buildField(field);
+      fields[fieldName] = this.buildField(field);
+    }
+
+    // ─── 2. RELATION FIELDS ──────────────────────
+
+    const relationFields = model.relations || {};
+
+    for (const [fieldName, relationMeta] of Object.entries(relationFields)) {
+      const wasFetched = Object.prototype.hasOwnProperty.call(sourceRecord, fieldName);
+      
+      // Prevent infinite recursion
+      if (depth >= this.maxRelationDepth) {
+        relations[fieldName] = {
+          type: relationMeta.type,
+          isList: relationMeta.isList || false,
+          nullable: relationMeta.nullable ?? true,
+          fields: {},
+          relations: {},
+          _truncated: true,
+        };
+        continue;
+      }
+
+      const relatedModelName = relationMeta.type;
+
+      // Prevent cycles
+      if (currentVisited.has(relatedModelName)) {
+        continue;
+      }
+
+      // ✅ Get the related model from registry
+      let relatedModel;
+      try {
+        relatedModel = this.modelRegistry.get(relatedModelName);
+      } catch {
+        // If model not found, use empty metadata
+        relations[fieldName] = {
+          type: relatedModelName,
+          isList: relationMeta.isList || false,
+          nullable: relationMeta.nullable ?? true,
+          fields: {},
+          relations: {}
+        };
+        continue;
+      }
+
+      // ✅ Build metadata for related model (with or without data)
+      const relatedRecord = wasFetched ? sourceRecord[fieldName] : null;
+      
+      const relatedMetadata = this.build(
+        relatedModel,
+        relatedRecord,
+        recordId,
+        currentVisited,
+        depth + 1
+      );
+
+      relations[fieldName] = {
+        type: relatedModelName,
+        isList: relationMeta.isList || false,
+        nullable: relationMeta.nullable ?? true,
+        fields: relatedMetadata.fields || {},
+        relations: relatedMetadata.relations || {}
+      };
     }
 
     const metadata = {
       fields
     };
 
-    if (
-      Object.keys(relations).length > 0
-    ) {
-      metadata.relations =
-        relations;
+    if (Object.keys(relations).length > 0) {
+      metadata.relations = relations;
     }
 
     return metadata;
   }
+
+  
 
   /*
    * Resolve metadata for a relation that was actually fetched.
@@ -316,13 +261,7 @@ class EditorMetadataBuilder {
       );
     }
 
-    /*
-     * Null relation:
-     *
-     * The relation itself was fetched, so expose its scalar
-     * editor metadata, but there is no nested fetched object
-     * from which to discover deeper relations.
-     */
+    // Null relation: expose scalar metadata only, no deeper relations
     return this.build(
       model,
       {},
@@ -332,33 +271,15 @@ class EditorMetadataBuilder {
     );
   }
 
-  getRelatedModelName(field) {
-
-    return (
-      field.modelName ||
-      field.relatedModel ||
-      field.targetModel ||
-      field.type ||
-      null
-    );
-  }
-
   /*
    * Determine whether a scalar field is the foreign-key side of
    * a Prisma relation.
-   *
-   * TypeCaster metadata may expose Prisma relation arguments in
-   * several representations. We intentionally inspect only the
-   * relation metadata already present on the field.
    */
   isRelationScalarField(field) {
     if (!field || typeof field !== 'object') {
       return false;
     }
 
-    /*
-     * Explicit metadata flags take precedence when available.
-     */
     if (
       field.isForeignKey === true ||
       field.isRelationScalar === true ||
@@ -367,14 +288,6 @@ class EditorMetadataBuilder {
       return true;
     }
 
-    /*
-     * Some registry representations preserve Prisma's
-     * @relation(...) arguments as a string.
-     *
-     * Example:
-     *
-     *   fields: [organizationId], references: [id]
-     */
     const relationArguments =
       typeof field.arguments === 'string'
         ? field.arguments
@@ -392,10 +305,6 @@ class EditorMetadataBuilder {
       return true;
     }
 
-    /*
-     * Also support structured relation arguments should the
-     * registry expose them as objects in future.
-     */
     const relation =
       field.relation ||
       field.relationInfo ||
@@ -418,17 +327,17 @@ class EditorMetadataBuilder {
   }
 
   buildField(field) {
-
     const metadata = {
-      editor:
-        this.getEditor(field),
-
-      required:
-        field.required === true,
-
-      nullable:
-        field.nullable === true
+      editor: this.getEditor(field),
+      required: field.required === true,
+      nullable: field.nullable === true
     };
+
+    // 🔥 NEW: Set inputType from attributes
+    const inputType = this.getInputTypeFromAttributes(field);
+    if (inputType) {
+      metadata.inputType = inputType;
+    }
 
     Object.assign(
       metadata,
@@ -439,7 +348,6 @@ class EditorMetadataBuilder {
   }
 
   getEditor(field) {
-
     if (
       field.enumValues ||
       field.type === 'Enum'
@@ -447,17 +355,6 @@ class EditorMetadataBuilder {
       return 'select';
     }
 
-    /*
-     * Semantq schema editor annotation.
-     *
-     * Example:
-     *
-     * contactData Json?
-     *   /// @editor predefined-key-values email:text mobile:text url:url
-     *
-     * The annotation describes the frontend editor rather
-     * than changing the underlying Prisma field type.
-     */
     const editorAnnotation =
       this.getEditorAnnotation(field);
 
@@ -475,9 +372,6 @@ class EditorMetadataBuilder {
       }
     }
 
-    /*
-     * Explicit frontend editor override.
-     */
     if (
       typeof field.editor === 'string' &&
       field.editor.trim()
@@ -493,54 +387,39 @@ class EditorMetadataBuilder {
     }
 
     switch (field.type) {
-
       case 'String':
         return 'text';
-
       case 'Int':
       case 'BigInt':
       case 'Float':
       case 'Decimal':
         return 'number';
-
       case 'Boolean':
         return 'checkbox';
-
       case 'Date':
         return 'date';
-
       case 'DateTime':
         return 'datetime-local';
-
       case 'Json':
         return 'textarea';
-
       case 'Bytes':
         return 'file';
-
       default:
         return 'text';
     }
   }
 
   getEditorProperties(field) {
-
     const props = {};
 
-    /*
-     * Enum options.
-     */
     if (field.enumValues) {
-
-      props.options =
-        [...field.enumValues];
+      props.options = [...field.enumValues];
 
       if (
         field.selected !== undefined &&
         field.selected !== null
       ) {
-        props.selected =
-          field.selected;
+        props.selected = field.selected;
       }
 
       const selectedAttribute =
@@ -555,33 +434,20 @@ class EditorMetadataBuilder {
           : null;
 
       if (selectedAttribute) {
-        props.selected =
-          selectedAttribute.arguments.trim();
+        props.selected = selectedAttribute.arguments.trim();
       }
     }
 
-    /*
-     * Scalar lists.
-     */
     if (
       field.isList === true &&
       !field.enumValues
     ) {
-
       props.structure = {
-        type:
-          'comma-separated-values',
-
-        item:
-          this.buildListItemMetadata(
-            field
-          )
+        type: 'comma-separated-values',
+        item: this.buildListItemMetadata(field)
       };
     }
 
-    /*
-     * Semantq schema editor annotation.
-     */
     const editorAnnotation =
       this.getEditorAnnotation(field);
 
@@ -589,104 +455,57 @@ class EditorMetadataBuilder {
       const [editorType, ...definition] =
         editorAnnotation.split(/\s+/);
 
-      if (
-        editorType ===
-        'predefined-key-values'
-      ) {
-        props.structure =
-          this.buildPredefinedKeyStructure(
-            definition
-          );
-
+      if (editorType === 'predefined-key-values') {
+        props.structure = this.buildPredefinedKeyStructure(definition);
         return props;
       }
 
-      if (
-        editorType ===
-        'custom-key-value'
-      ) {
-        props.structure =
-          this.buildCustomKeyStructure(
-            definition
-          );
-
+      if (editorType === 'custom-key-value') {
+        props.structure = this.buildCustomKeyStructure(definition);
         return props;
       }
     }
 
-    /*
-     * JSON.
-     */
     if (field.type === 'Json') {
-
-      props.structure =
-        this.buildJsonStructure(
-          field
-        );
+      props.structure = this.buildJsonStructure(field);
     }
 
-    /*
-     * Numeric constraints.
-     *
-     * Frontend contract uses minimum/maximum.
-     */
-    this.addNumericProperties(
-      props,
-      field
-    );
+    this.addNumericProperties(props, field);
 
-    /*
-     * Text constraints.
-     */
-    if (
-      field.maxLength !== undefined
-    ) {
-      props.maxLength =
-        field.maxLength;
+    if (field.maxLength !== undefined) {
+      props.maxLength = field.maxLength;
     }
 
-    if (
-      field.minLength !== undefined
-    ) {
-      props.minLength =
-        field.minLength;
+    if (field.minLength !== undefined) {
+      props.minLength = field.minLength;
     }
 
-    if (
-      field.pattern !== undefined
-    ) {
-      props.pattern =
-        field.pattern;
+    if (field.pattern !== undefined) {
+      props.pattern = field.pattern;
     }
 
     return props;
   }
 
   buildListItemMetadata(field) {
-
     const item = {};
 
     switch (field.type) {
-
       case 'Int':
       case 'BigInt':
       case 'Float':
       case 'Decimal':
         item.editor = 'number';
         break;
-
       case 'Boolean':
         item.editor = 'checkbox';
         break;
-
       case 'Date':
         item.editor = 'date';
         break;
-
       case 'DateTime':
         item.editor = 'datetime-local';
         break;
-
       default:
         item.editor = 'text';
     }
@@ -711,7 +530,6 @@ class EditorMetadataBuilder {
   }
 
   getEditorAnnotation(field) {
-
     if (
       !field ||
       !Array.isArray(field.attributes)
@@ -733,8 +551,28 @@ class EditorMetadataBuilder {
       : null;
   }
 
-  buildPredefinedKeyStructure(definition) {
+  // 🔥 NEW: Generic input type from attributes
+  getInputTypeFromAttributes(field) {
+    if (!field || !Array.isArray(field.attributes)) {
+      return null;
+    }
 
+    const attribute = field.attributes.find(
+      (item) =>
+        item &&
+        typeof item.name === 'string' &&
+        typeof item.arguments === 'string' &&
+        item.arguments.trim() === 'editor'
+    );
+
+    if (!attribute) {
+      return null;
+    }
+
+    return attribute.name.trim() || null;
+  }
+
+  buildPredefinedKeyStructure(definition) {
     const fields = {};
 
     for (const token of definition) {
@@ -744,19 +582,14 @@ class EditorMetadataBuilder {
         continue;
       }
 
-      const key =
-        token.slice(0, separator).trim();
-
-      const editor =
-        token.slice(separator + 1).trim();
+      const key = token.slice(0, separator).trim();
+      const editor = token.slice(separator + 1).trim();
 
       if (!key || !editor) {
         continue;
       }
 
-      fields[key] = {
-        editor
-      };
+      fields[key] = { editor };
     }
 
     return {
@@ -766,46 +599,33 @@ class EditorMetadataBuilder {
   }
 
   buildCustomKeyStructure(definition) {
-
     const structure = {
       type: 'custom-key-value'
     };
 
     for (const token of definition) {
-
-      const separator =
-        token.indexOf(':');
+      const separator = token.indexOf(':');
 
       if (separator <= 0) {
         continue;
       }
 
-      const key =
-        token.slice(0, separator).trim();
-
-      const editor =
-        token.slice(separator + 1).trim();
+      const key = token.slice(0, separator).trim();
+      const editor = token.slice(separator + 1).trim();
 
       if (!key || !editor) {
         continue;
       }
 
-      if (
-        key === 'key' ||
-        key === 'value'
-      ) {
-        structure[key] = {
-          editor
-        };
+      if (key === 'key' || key === 'value') {
+        structure[key] = { editor };
       }
     }
 
     return structure;
   }
 
-
   buildJsonStructure(field) {
-
     if (field.jsonStructure) {
       return field.jsonStructure;
     }
@@ -819,11 +639,7 @@ class EditorMetadataBuilder {
     };
   }
 
-  addNumericProperties(
-    props,
-    field
-  ) {
-
+  addNumericProperties(props, field) {
     if (field.min !== undefined) {
       props.minimum = field.min;
     }
@@ -839,22 +655,14 @@ class EditorMetadataBuilder {
     return props;
   }
 
-  isIdentifier(
-    fieldName,
-    field
-  ) {
-
+  isIdentifier(fieldName, field) {
     return (
       fieldName === 'id' ||
       field.identifier === true
     );
   }
 
-  isManagedField(
-    fieldName,
-    field
-  ) {
-
+  isManagedField(fieldName, field) {
     return (
       fieldName === 'createdAt' ||
       fieldName === 'updatedAt' ||
@@ -865,14 +673,11 @@ class EditorMetadataBuilder {
   }
 
   entries(fields) {
-
     if (fields instanceof Map) {
       return fields.entries();
     }
 
-    return Object.entries(
-      fields || {}
-    );
+    return Object.entries(fields || {});
   }
 }
 
