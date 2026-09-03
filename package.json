@@ -1,6 +1,6 @@
 {
   "name": "@semantq/typecaster",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Schema-aware type casting and structural validation for Semantq QL.",
   "type": "module",
   "main": "index.js",
