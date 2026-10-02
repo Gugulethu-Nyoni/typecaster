@@ -132,10 +132,23 @@ class EditorMetadataBuilder {
 
     // ─── 2. RELATION FIELDS ──────────────────────
 
+    // depth = 0 means target model metadata only.
+    // Relations are included only when explicitly requested.
+    if (depth <= 0) {
+      return {
+        fields
+      };
+    }
+
     const relationFields = model.relations || {};
 
     for (const [fieldName, relationMeta] of Object.entries(relationFields)) {
       const wasFetched = Object.prototype.hasOwnProperty.call(sourceRecord, fieldName);
+
+      // Never expose relational metadata for relations that were not fetched.
+      if (!wasFetched) {
+        continue;
+      }
       
       // Prevent infinite recursion
       if (depth >= this.maxRelationDepth) {

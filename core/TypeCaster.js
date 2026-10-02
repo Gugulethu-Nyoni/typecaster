@@ -497,7 +497,8 @@ class TypeCaster {
 
   attachMetadata(
     result,
-    modelName
+    modelName,
+    depth = 0
   ) {
     const model =
       this.getModel(
@@ -507,12 +508,13 @@ class TypeCaster {
     const recordId =
       result.id;
 
-    // 🔥 Pass the result so relation metadata is filtered by what was fetched
     const metadata =
       this.editorMetadataBuilder.build(
         model,
         result,
-        recordId
+        recordId,
+        new Set(),
+        depth
       );
 
     Object.defineProperty(
@@ -600,18 +602,35 @@ class TypeCaster {
     return undefined;
   }
 
-  // ─── DB TO FORM (with relation preservation) ──────
-
-    // ─── DB TO FORM (with relation preservation) ──────
+  // ─── DB TO FORM (with relation depth) ─────────────
 
   dbToFormModel(
     data,
-    modelName
+    modelName,
+    options = {}
   ) {
+    const depth =
+      options?.depth === undefined
+        ? 0
+        : Number(options.depth);
+
+    if (
+      !Number.isInteger(depth) ||
+      depth < 0
+    ) {
+      throw new TypeError(
+        'TypeCaster.dbToFormModel() depth must be a non-negative integer.'
+      );
+    }
+
     // ✅ Handle null/undefined by returning metadata-only
     if (data == null) {
       const result = {};
-      return this.attachMetadata(result, modelName);
+      return this.attachMetadata(
+        result,
+        modelName,
+        depth
+      );
     }
     
     if (
@@ -668,29 +687,49 @@ class TypeCaster {
     }
 
     // ─── 2. PRESERVE FETCHED RELATIONS ─────────────
+    //
+    // Relations are opt-in through depth.
+    //
+    // depth = 0 → target model only
+    // depth = 1 → target model + direct relations
+    // depth = 2 → target model + two relation levels
+    // etc.
+    //
+    // A relation must also actually exist in `data`.
+    // TypeCaster never fetches relations itself.
 
-    const relationFields = model.relations || {};
+    if (depth > 0) {
+      const relationFields = model.relations || {};
 
-    for (const [relationName, relationMeta] of Object.entries(relationFields)) {
-      // Only include if the relation was actually fetched
-      if (!Object.prototype.hasOwnProperty.call(data, relationName)) {
-        continue;
-      }
+      for (const [relationName, relationMeta] of Object.entries(relationFields)) {
+        // Only include if the relation was actually fetched
+        if (!Object.prototype.hasOwnProperty.call(data, relationName)) {
+          continue;
+        }
 
-      const relationData = data[relationName];
+        const relationData = data[relationName];
 
-      if (relationData === null || relationData === undefined) {
-        result[relationName] = null;
-        continue;
-      }
+        if (relationData === null || relationData === undefined) {
+          result[relationName] = null;
+          continue;
+        }
 
-      // Recursively process relation data
-      if (relationMeta.isList) {
-        result[relationName] = relationData.map((item) =>
-          this.dbToFormModel(item, relationMeta.type)
-        );
-      } else {
-        result[relationName] = this.dbToFormModel(relationData, relationMeta.type);
+        // Recursively process relation data only while depth remains.
+        if (relationMeta.isList) {
+          result[relationName] = relationData.map((item) =>
+            this.dbToFormModel(
+              item,
+              relationMeta.type,
+              { depth: depth - 1 }
+            )
+          );
+        } else {
+          result[relationName] = this.dbToFormModel(
+            relationData,
+            relationMeta.type,
+            { depth: depth - 1 }
+          );
+        }
       }
     }
 
@@ -698,7 +737,8 @@ class TypeCaster {
 
     return this.attachMetadata(
       result,
-      modelName
+      modelName,
+      depth
     );
   }
 
