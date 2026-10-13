@@ -62,16 +62,33 @@ class SchemaReader {
   }
 
   parseModels(source, models) {
+    // Mask comments without changing source positions.
+    // This prevents braces in comments from ending a model early.
+    const sourceWithoutComments = source
+      .replace(/\/\*[\s\S]*?\*\//g, (comment) =>
+        comment.replace(/[^\n]/g, ' ')
+      )
+      .replace(/\/\/.*$/gm, (comment) =>
+        comment.replace(/[^\n]/g, ' ')
+      );
+
     const modelPattern =
       /model\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{([\s\S]*?)\}/g;
 
     let match;
 
     while (
-      (match = modelPattern.exec(source)) !== null
+      (match = modelPattern.exec(sourceWithoutComments)) !== null
     ) {
       const modelName = match[1];
-      const body = match[2];
+      const openingBrace = sourceWithoutComments.indexOf(
+        '{',
+        match.index
+      );
+      const closingBrace = match.index + match[0].length - 1;
+
+      // Parse the original body so field-level annotations survive.
+      const body = source.slice(openingBrace + 1, closingBrace);
 
       models[modelName] = {
         name: modelName,
