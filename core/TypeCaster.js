@@ -495,6 +495,52 @@ class TypeCaster {
     return result;
   }
 
+  // ─── COLLECTION TO FORM ────────────────────────
+  //
+  // Typed collection output. Always returns an
+  // array. An empty collection yields a single
+  // metadata-only entry so the client still
+  // receives the model's editor contract.
+  //
+  // Use this for any endpoint that returns
+  // multiple records. Use dbToFormModel() for
+  // single-record endpoints.
+
+  collectionToFormModel(
+    data,
+    modelName,
+    options = {}
+  ) {
+    if (data == null) {
+      data = [];
+    }
+
+    if (!Array.isArray(data)) {
+      throw new TypeError(
+        'TypeCaster.collectionToFormModel() expects an array.'
+      );
+    }
+
+    if (data.length === 0) {
+      const sentinel = this.dbToFormModel(
+        null,
+        modelName,
+        options
+      );
+      sentinel.id = '__empty__';
+      sentinel.__empty__ = true;
+      return [sentinel];
+    }
+
+    return data.map((item) =>
+      this.dbToFormModel(
+        item,
+        modelName,
+        options
+      )
+    );
+  }
+
   attachMetadata(
     result,
     modelName,
@@ -632,7 +678,7 @@ class TypeCaster {
         depth
       );
     }
-    
+
     if (
       !data ||
       typeof data !== 'object' ||
