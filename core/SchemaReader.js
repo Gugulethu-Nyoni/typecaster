@@ -158,8 +158,16 @@ class SchemaReader {
           /\/\/\/\s*@editor\s+(.+)$/
         );
 
+      // Strip the trailing `///` annotation before parsing schema
+      // attributes. Without this, `@editor` inside the comment is
+      // also picked up by parseAttributes() as a bogus attribute
+      // with a null argument, which collides with the real entry
+      // produced from editorAnnotation below.
+      const attributesWithoutComment =
+        attributes.replace(/\/\/\/.*$/, '');
+
       let parsedAttributes =
-        this.parseAttributes(attributes);
+        this.parseAttributes(attributesWithoutComment);
 
       if (editorAnnotation) {
         parsedAttributes = [
