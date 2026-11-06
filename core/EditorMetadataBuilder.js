@@ -383,6 +383,11 @@ class EditorMetadataBuilder {
       ) {
         return 'key-value';
       }
+
+      // `@editor table` → editor 'table'
+      if (editorType === 'table') {
+        return 'table';
+      }
     }
 
     if (
@@ -475,6 +480,11 @@ class EditorMetadataBuilder {
 
       if (editorType === 'custom-key-value') {
         props.structure = this.buildCustomKeyStructure(definition);
+        return props;
+      }
+
+      if (editorType === 'table') {
+        props.structure = this.buildTableStructure(definition);
         return props;
       }
     }
@@ -632,6 +642,41 @@ class EditorMetadataBuilder {
 
       if (key === 'key' || key === 'value') {
         structure[key] = { editor };
+      }
+    }
+
+    return structure;
+  }
+
+  buildTableStructure(definition) {
+    // `@editor table columns:a,b,c` → structure.columns = ['a','b','c']
+    // `@editor table`             → structure has no columns hint
+    const structure = {
+      type: 'table'
+    };
+
+    for (const token of definition) {
+      if (typeof token !== 'string') {
+        continue;
+      }
+
+      if (!token.startsWith('columns:')) {
+        continue;
+      }
+
+      const raw = token.slice('columns:'.length).trim();
+
+      if (!raw) {
+        continue;
+      }
+
+      const columns = raw
+        .split(',')
+        .map(c => c.trim())
+        .filter(Boolean);
+
+      if (columns.length > 0) {
+        structure.columns = columns;
       }
     }
 
