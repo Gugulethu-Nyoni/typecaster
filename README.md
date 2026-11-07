@@ -8,6 +8,7 @@ Its purpose is deliberately focused:
 > **TypeCaster converts external values into schema-compatible typed values, converts database values into application/form representations, verifies prepared data before persistence, and derives reduced metadata for frontend editors.**
 
 -- [add new features] 
+-- [table editor annotation]
 
 # Table of Contents
 
